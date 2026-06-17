@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `consultas` MODIFY `status` VARCHAR(191) NOT NULL DEFAULT 'AGENDADA';

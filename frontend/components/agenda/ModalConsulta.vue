@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource banco {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id           Int        @id @default(autoincrement())
+  nome         String
+  email        String     @unique
+  senha        String
+  cargo        String     @default("admin")
+  refreshToken String?
+  criadoEm     DateTime   @default(now())
+
+  consultas    Consulta[]
+
+  @@map("usuarios")
+}
+
+model Paciente {
+  id                  Int                @id @default(autoincrement())
+  nome                String
+  cpf                 String             @unique
+  rg                  String?
+  email               String?
+  telefone            String
+  telefoneResidencial String?
+  telefoneTrabalho    String?
+  dataNascimento      DateTime?
+  sexo                Sexo?
+  cep                 String?
+  endereco            String?
+  numero              String?
+  complemento         String?
+  bairro              String?
+  cidade              String?
+  estado              String?
+  pais                String?
+  observacoes         String?
+  criadoEm            DateTime           @default(now())
+
+  consultas           Consulta[]
+  convenios           PacienteConvenio[] // ✅ Adicionado para fechar a relação com PacienteConvenio
+
+  @@map("pacientes")
+}
+
+enum Sexo {
+  MASCULINO
+  FEMININO
+  OUTRO
+}
+
+model Convenio {
+  id        Int                @id @default(autoincrement())
+  nome      String
+  pacientes PacienteConvenio[]
+
+  @@map("convenios")
+}
+
+model PacienteConvenio {
+  id             Int      @id @default(autoincrement())
+  pacienteId     Int
+  convenioId     Int
+  numeroCarteira String?
+
+  paciente       Paciente @relation(fields: [pacienteId], references: [id])
+  convenio       Convenio @relation(fields: [convenioId], references: [id])
+
+  @@map("pacientes_convenios")
+}
+
+model Especialidade {
+  id         Int            @id @default(autoincrement())
+  nome       String         @unique
+  sigla      String         // Ex: CRM, COREN, etc.
+  n_conselho String
+  descricao  String?
+  criadoEm   DateTime       @default(now())
+
+  profissionais Profissional[]
+
+  @@map("especialidades")
+}
+
+model Profissional {
+  id               Int           @id @default(autoincrement())
+  nome             String
+  cpf              String        @unique
+  telefone         String
+  email            String?
+  registroConselho String?
+  ativo            Boolean       @default(true)
+  criadoEm         DateTime      @default(now())
+
+  especialidadeId  Int
+  especialidade    Especialidade @relation(fields: [especialidadeId], references: [id])
+
+  consultas        Consulta[]
+
+  @@map("profissionais")
+}
+
+model Consulta {
+  id             Int            @id @default(autoincrement())
+  pacienteId     Int
+  profissionalId Int
+  usuarioId      Int?           // ✅ Campo adicionado para armazenar o ID do criador da consulta
+  status         StatusConsulta @default(AGENDADA)
+  observacoes    String?
+  valor          Float?        
+  confirmado     Boolean        @default(false)
+  cor            String?
+  dataInicio     DateTime
+  dataFim        DateTime
+  descricao      String?
+  encaixe        Boolean        @default(false)
+  pago           Boolean        @default(false)
+  retorno        Boolean        @default(false)
+  sala           String?
+  titulo         String?
+  
+  criadoEm       DateTime       @default(now())
+  atualizadoEm   DateTime?      // ✅ Campo adicionado para controle de modificações
+
+  // ✅ Relações configuradas explicitamente com nomes de FK únicos para o MySQL
+  paciente     Paciente     @relation(fields: [pacienteId], references: [id], map: "fk_consultas_paciente")
+  profissional Profissional @relation(fields: [profissionalId], references: [id], map: "fk_consultas_profissional")
+  usuario      Usuario?     @relation(fields: [usuarioId], references: [id], map: "fk_consultas_usuario")
+
+  @@map("consultas")
+}
+
+enum StatusConsulta {
+  AGENDADA
+  CONFIRMADA
+  EM_ANDAMENTO
+  FINALIZADA
+  CANCELADA
+  FALTOU
+}
