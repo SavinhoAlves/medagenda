@@ -68,6 +68,27 @@ exports.criar = async (req, res) => {
 
 }
 
+exports.listarConvenios = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const vinculos = await prisma.pacienteConvenio.findMany({
+      where: { pacienteId: Number(id) },
+      include: { convenio: true }
+    })
+
+    return res.json(
+      vinculos.map((vinculo) => ({
+        id: vinculo.convenio.id,
+        nome: vinculo.convenio.nome,
+        numeroCarteira: vinculo.numeroCarteira
+      }))
+    )
+  } catch (error) {
+    return res.status(500).json({ error: error.message })
+  }
+}
+
 exports.buscarPorId = async (req, res) => {
 
   try {

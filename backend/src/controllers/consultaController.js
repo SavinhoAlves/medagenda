@@ -57,6 +57,11 @@ exports.criar = async (req, res) => {
         status: "AGENDADA",
         retorno: procedimento === "RETORNO",
         cor: procedimento === "RETORNO" ? "#e57373" : "#4fc3f7",
+        titulo: procedimento === "RETORNO"
+          ? "Retorno"
+          : procedimento === "EXAME"
+            ? "Exame Diagnóstico"
+            : "Consulta Médica",
         descricao: convenio ? `Convênio: ${convenio}` : null
         
         // Se você alterou o schema.prisma para 'atualizadoEm DateTime?',
@@ -101,9 +106,19 @@ exports.atualizar = async (req, res) => {
     if (req.body.procedimento) {
       dadosParaAtualizar.retorno = req.body.procedimento === "RETORNO"
       dadosParaAtualizar.cor = req.body.procedimento === "RETORNO" ? "#e57373" : "#4fc3f7"
+      dadosParaAtualizar.titulo = req.body.procedimento === "RETORNO"
+        ? "Retorno"
+        : req.body.procedimento === "EXAME"
+          ? "Exame Diagnóstico"
+          : "Consulta Médica"
+    }
+    
+    // Tratamento para salvar o campo 'descricao' baseado no convênio enviado pelo Front-end
+    if (req.body.convenio !== undefined) {
+      dadosParaAtualizar.descricao = req.body.convenio ? `Convênio: ${req.body.convenio}` : null
     }
 
-    // 🔥 FORÇA O CAMPO 'atualizadoEm' A PEGAR A DATA ATUAL APENAS NO UPDATE
+    // FORÇA O CAMPO 'atualizadoEm' A PEGAR A DATA ATUAL APENAS NO UPDATE
     dadosParaAtualizar.atualizadoEm = new Date()
 
     const consulta = await prisma.consulta.update({
@@ -111,8 +126,8 @@ exports.atualizar = async (req, res) => {
       data: dadosParaAtualizar,
       include: {
         paciente: true,
-        professional: {
-          include: { especialidade: true }
+        profissional: { // 🌟 CORRIGIDO: de 'professional' para 'profissional' para bater com o schema.prisma
+          include: { Powdered: false, especialidade: true }
         }
       }
     })

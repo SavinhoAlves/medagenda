@@ -10,6 +10,7 @@ const especialidadeRoutes = require('./routes/especialidadeRoutes')
 const profissionalRoutes = require('./routes/profissionalRoutes')
 const consultaRoutes = require('./routes/consultaRoutes')
 const dashboardRoutes = require('./routes/dashboardRoutes')
+const convenioRoutes = require('./routes/convenioRoutes')
 
 const app = express()
 
@@ -47,6 +48,7 @@ app.use('/especialidades', especialidadeRoutes)
 app.use('/profissionais', profissionalRoutes)
 app.use('/consultas', consultaRoutes)
 app.use('/dashboard', dashboardRoutes)
+app.use('/convenios', convenioRoutes)
 
 // Rota raiz para verificação rápida
 app.get('/', (req, res) => {
@@ -62,16 +64,28 @@ app.use((req, res) => {
   })
 })
 
-// Middleware Global de Erros (Garante que respostas de erro também incluam cabeçalhos CORS)
+// ==========================================
+// 🌟 CORREÇÃO: MIDDLEWARE GLOBAL DE ERROS DEVE SER O PRIMEIRO ABAIXO DAS ROTAS
+// ==========================================
 app.use((err, req, res, next) => {
-  console.error('❌ Erro interno no servidor:', err)
+  console.error('❌ Erro detetado no ciclo do Express:', err)
   
+  // Garante os cabeçalhos CORS mesmo em caso de falha crítica
   res.header('Access-Control-Allow-Origin', 'http://localhost:3000')
   res.header('Access-Control-Allow-Credentials', 'true')
   
   return res.status(500).json({
     error: 'Erro interno no servidor',
     details: err.message
+  })
+})
+
+// ==========================================
+// Middleware de erro 404 (Rota não encontrada) - SE QUEDAR NO FINAL, NADA PASSA DELE
+// ==========================================
+app.use((req, res) => {
+  return res.status(404).json({
+    error: 'Rota não encontrada'
   })
 })
 

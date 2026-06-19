@@ -13,7 +13,7 @@
           class="nav-link" 
           :class="{ 'router-link-active': $route.path.startsWith('/dashboard') }"
         >
-          Dashboard
+          Início
         </NuxtLink>
         <NuxtLink 
           to="/agenda" 
@@ -35,6 +35,13 @@
           :class="{ 'router-link-active': $route.path.startsWith('/profissionais') }"
         >
           Profissionais
+        </NuxtLink>
+        <NuxtLink 
+          to="/convenios" 
+          class="nav-link" 
+          :class="{ 'router-link-active': $route.path.startsWith('/convenios') }"
+        >
+          Convênios
         </NuxtLink>
       </nav>
 

@@ -53,6 +53,7 @@ model Paciente {
   criadoEm DateTime @default(now())
 
   consultas Consulta[]
+  convenios PacienteConvenio[]
 
   @@map("pacientes")
 }
@@ -123,6 +124,7 @@ model Consulta {
 
   pacienteId Int
   profissionalId Int
+  usuarioId Int?
 
   status StatusConsulta @default(AGENDADA)
 
@@ -142,6 +144,12 @@ model Consulta {
 
   sala String?
   titulo String?
+
+  paciente Paciente @relation(fields: [pacienteId], references: [id])
+  profissional Profissional @relation(fields: [profissionalId], references: [id])
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@map("consultas")
 }
 
 enum StatusConsulta {

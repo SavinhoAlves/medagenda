@@ -14,6 +14,11 @@ router.get(
 )
 
 router.get(
+  '/:id/convenios',
+  pacienteController.listarConvenios
+)
+
+router.get(
   '/:id',
   pacienteController.buscarPorId
 )
