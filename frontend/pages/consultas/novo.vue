@@ -8,6 +8,7 @@ definePageMeta({
 })
 
 const router = useRouter()
+const toast = useToast()
 
 const loading = ref(false)
 
@@ -64,10 +65,7 @@ async function salvarConsulta() {
 
     console.error(error)
 
-    alert(
-      error.response?.data?.error ||
-      'Erro ao salvar consulta'
-    )
+    toast.erro(error.response?.data?.error || 'Erro ao salvar consulta.')
 
   } finally {
 

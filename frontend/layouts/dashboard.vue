@@ -1,15 +1,16 @@
 <template>
   <div>
     <Header />
-    
     <main class="main-content">
       <slot />
     </main>
+    <ToastContainer />
   </div>
 </template>
 
 <script setup>
 import Header from '~/components/layout/Header.vue'
+import ToastContainer from '~/components/ToastContainer.vue'
 </script>
 
 <style>

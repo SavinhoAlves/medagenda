@@ -29,6 +29,7 @@ import api from '../../services/api'
 
 // Define os eventos que o modal pode emitir para a listagem pai
 const emit = defineEmits(['fechar', 'salvo'])
+const toast = useToast()
 
 const nome = ref('')
 const enviando = ref(false)
@@ -44,7 +45,7 @@ async function salvarNovoConvenio() {
     emit('salvo')   // Avisa o index.vue para fechar e atualizar a lista
   } catch (error) {
     console.error('Erro ao cadastrar convênio:', error)
-    alert('Erro ao cadastrar convênio. Tente novamente.')
+    toast.erro('Erro ao cadastrar convênio. Tente novamente.')
   } finally {
     enviando.value = false
   }

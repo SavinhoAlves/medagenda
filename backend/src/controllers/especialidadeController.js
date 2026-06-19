@@ -16,16 +16,10 @@ exports.listar = async (req, res) => {
 // CRIAR
 exports.criar = async (req, res) => {
   try {
-    const { nome, descricao, sigla, numero_conselho } = req.body
+    const { nome, descricao } = req.body
 
     if (!nome) {
       return res.status(400).json({ error: 'Nome é obrigatório' })
-    }
-    if (!sigla) {
-      return res.status(400).json({ error: 'A sigla é obrigatória' })
-    }
-    if (!numero_conselho) {
-      return res.status(400).json({ error: 'O número do conselho é obrigatório' })
     }
 
     const existe = await prisma.especialidade.findUnique({
@@ -37,13 +31,7 @@ exports.criar = async (req, res) => {
     }
 
     const especialidade = await prisma.especialidade.create({
-      data: { 
-        nome, 
-        sigla,
-        descricao,
-        // Alterado de Number() para String() para bater com o seu Schema
-        n_conselho: String(numero_conselho) 
-      }
+      data: { nome, descricao }
     })
 
     return res.status(201).json(especialidade)
@@ -73,18 +61,11 @@ exports.buscar = async (req, res) => {
 // ATUALIZAR
 exports.atualizar = async (req, res) => {
   try {
-    const { nome, sigla, n_conselho, descricao } = req.body
+    const { nome, descricao } = req.body
 
-    // Corrigido aqui: alterado de numeroConselho para n_conselho para bater com seu Schema
     const especialidade = await prisma.especialidade.update({
       where: { id: Number(req.params.id) },
-      data: { 
-        nome, 
-        sigla,
-        descricao,
-        // Alterado para salvar como String se o valor existir
-        n_conselho: n_conselho ? String(n_conselho) : undefined
-      }
+      data: { nome, descricao }
     })
 
     return res.json(especialidade)

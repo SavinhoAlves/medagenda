@@ -1,191 +1,72 @@
+<template>
+  <form @submit.prevent="salvar">
+    <div class="form-grid">
+
+      <div class="field-group span-2">
+        <label>Nome da especialidade <span class="obrigatorio">*</span></label>
+        <input v-model="form.nome" type="text" placeholder="Ex: Cardiologia, Pediatria..." required :disabled="enviando" />
+      </div>
+
+      <div class="field-group span-2">
+        <label>Descrição</label>
+        <input v-model="form.descricao" type="text" placeholder="Breve descrição da especialidade" :disabled="enviando" />
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn-cancelar" @click="$emit('fechar')" :disabled="enviando">Cancelar</button>
+      <button type="submit" class="btn-salvar" :disabled="enviando">
+        {{ enviando ? 'Salvando...' : 'Cadastrar' }}
+      </button>
+    </div>
+  </form>
+</template>
+
 <script setup>
 import { ref } from 'vue'
 import api from '@/services/api'
-import { navigateTo } from '#app' // <-- Importado para evitar erros de runtime
 
-definePageMeta({
-  layout: 'dashboard',
-  middleware: 'auth'
-})
+const emit = defineEmits(['fechar', 'salvo'])
+const toast = useToast()
+const enviando = ref(false)
 
-const form = ref({
-  nome: '',
-  descricao: '',
-  sigla: '',
-  n_conselho: ''
-})
+const form = ref({ nome: '', descricao: '' })
 
 async function salvar() {
   try {
+    enviando.value = true
     await api.post('/especialidades', {
       nome: form.value.nome,
-      descricao: form.value.descricao,
-      sigla: form.value.sigla,
-      numero_conselho: form.value.n_conselho
+      descricao: form.value.descricao
     })
-
-    await navigateTo('/especialidades')
-
+    emit('salvo')
   } catch (error) {
-    console.error('ERRO BACKEND:', error.response?.data || error)
-    alert(error.response?.data?.error || 'Erro ao salvar')
+    toast.erro(error.response?.data?.error || 'Erro ao salvar especialidade.')
+  } finally {
+    enviando.value = false
   }
 }
 </script>
 
-<template>
-  <div class="page-wrapper">
-
-    <div>
-      <h1 class="page-title">
-        Nova especialidade
-      </h1>
-      <p class="page-sub">
-        Cadastre uma especialidade
-      </p>
-    </div>
-
-    <form 
-      class="form-card" 
-      @submit.prevent="salvar"
-    >
-      <div class="form-grid">
-
-        <div class="input-group">
-          <label>Nome</label>
-          <input 
-            v-model="form.nome" 
-            placeholder="Ex: Cardiologia, Pediatria..." 
-            required
-          >
-        </div>
-
-        <div class="input-group">
-          <label>Descrição</label>
-          <input 
-            v-model="form.descricao" 
-            placeholder="Breve descrição da especialidade"
-            required
-          >
-        </div>
-
-        <div class="input-group">
-          <label>Tipo (Sigla)</label>
-          <input 
-            v-model="form.sigla" 
-            placeholder="Ex: CRM, CRO..."
-            required
-          >
-        </div>
-
-        <div class="input-group">
-          <label>Número do conselho</label>
-          <input 
-            v-model="form.n_conselho" 
-            placeholder="Código do conselho"
-            required
-            type="number"
-          >
-        </div>
-
-      </div>
-
-      <button class="submit-btn">
-        Salvar especialidade
-      </button>
-    </form>
-
-  </div>
-</template>
-
 <style scoped>
-.page-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  padding: 40px;
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.field-group { display: flex; flex-direction: column; gap: 7px; }
+.field-group.span-2 { grid-column: span 2; }
+.field-group label { font-size: 13px; font-weight: 600; color: #475569; }
+.obrigatorio { color: #ef4444; }
+.field-group input {
+  height: 42px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px;
+  font-size: 14px; font-family: 'Inter', sans-serif; color: #334155;
+  background: #f8fafc; outline: none; transition: all 0.2s ease;
 }
-
-.page-title {
-  font-size: 42px;
-  color: #f0fdf4;
-}
-
-.page-sub {
-  color: rgba(255, 255, 255, .45);
-}
-
-.form-card {
-  background: rgba(12, 19, 24, .82);
-  border: 1px solid rgba(255, 255, 255, .06);
-  border-radius: 24px;
-  padding: 32px;
-  /* max-width: 800px; */
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-}
-
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.input-group label {
-  color: rgba(255, 255, 255, .45);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.input-group input,
-.input-group select {
-  height: 52px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, .06);
-  background: rgba(255, 255, 255, .03);
-  padding: 0 16px;
-  color: white;
-  outline: none;
-  font-size: 15px;
-  transition: all 0.2s ease;
-}
-
-.input-group input:focus {
-  border-color: #10b981;
-  background: rgba(255, 255, 255, .05);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-}
-
-/* Remove as setas padrões de inputs do tipo number */
-.input-group input[type="number"]::-webkit-outer-spin-button,
-.input-group input[type="number"]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.input-group input[type="number"] {
-  -moz-appearance: textfield;
-}
-
-.submit-btn {
-  margin-top: 28px;
-  height: 52px;
-  border: none;
-  border-radius: 14px;
-  padding: 0 24px;
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: white;
-  font-weight: 700;
-  cursor: pointer;
-  font-size: 15px;
-  transition: all 0.2s ease;
-}
-
-.submit-btn:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-}
+.field-group input:focus { border-color: #059669; background: #ffffff; box-shadow: 0 0 0 3px rgba(5,150,105,.08); }
+.field-group input::placeholder { color: #94a3b8; }
+.field-group input:disabled { opacity: 0.6; cursor: not-allowed; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+.btn-cancelar { background: #f1f5f9; color: #475569; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+.btn-cancelar:hover { background: #e2e8f0; }
+.btn-salvar { background: #059669; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(5,150,105,.15); transition: all 0.2s; }
+.btn-salvar:hover { background: #047857; }
+.btn-salvar:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>

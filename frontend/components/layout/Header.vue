@@ -36,12 +36,19 @@
         >
           Profissionais
         </NuxtLink>
-        <NuxtLink 
-          to="/convenios" 
-          class="nav-link" 
+        <NuxtLink
+          to="/convenios"
+          class="nav-link"
           :class="{ 'router-link-active': $route.path.startsWith('/convenios') }"
         >
           Convênios
+        </NuxtLink>
+        <NuxtLink
+          to="/especialidades"
+          class="nav-link"
+          :class="{ 'router-link-active': $route.path.startsWith('/especialidades') }"
+        >
+          Especialidades
         </NuxtLink>
       </nav>
 

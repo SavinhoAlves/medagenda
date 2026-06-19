@@ -6,6 +6,8 @@ definePageMeta({
   middleware: 'auth'
 })
 
+useHead({ title: 'Agenda' })
+
 // Serviços de API
 import appointmentService from '~/services/appointmentService'
 import patientService from '~/services/patientService'

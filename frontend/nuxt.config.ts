@@ -2,6 +2,13 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2025-07-15',
 
+  app: {
+    head: {
+      titleTemplate: '%s | MedAgenda',
+      title: 'MedAgenda'
+    }
+  },
+
   devtools: {
     enabled: true
   },

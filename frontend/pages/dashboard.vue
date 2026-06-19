@@ -7,6 +7,8 @@ definePageMeta({
   middleware: 'auth'
 })
 
+useHead({ title: 'Dashboard' })
+
 const carregando = ref(true)
 const dados = ref({
   pacientes: 0,

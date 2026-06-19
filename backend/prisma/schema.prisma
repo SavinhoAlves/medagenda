@@ -91,8 +91,8 @@ model PacienteConvenio {
 model Especialidade {
   id        Int      @id @default(autoincrement())
   nome      String   @unique
-  sigla     String   // <-- Adicionado aqui (ex: CRM, COREN, etc.)
-  n_conselho  String
+  sigla     String?
+  n_conselho  String?
   descricao String?
   criadoEm  DateTime @default(now())
 

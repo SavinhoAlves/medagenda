@@ -38,9 +38,21 @@
               </div>
             </td>
             <td class="txt-direita">
-              <button class="btn-editar" @click="irParaEdicao(convenio.id)">
-                Editar Convênio
-              </button>
+              <div class="acoes">
+                <button class="btn-editar" @click="abrirModalEditar(convenio)">
+                  <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                  Editar
+                </button>
+                <button class="btn-excluir" @click="abrirModalExcluir(convenio)">
+                  <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                  </svg>
+                  Excluir
+                </button>
+              </div>
             </td>
           </tr>
           <tr v-if="listaConvenios.length === 0">
@@ -49,6 +61,54 @@
         </tbody>
       </table>
     </main>
+
+    <!-- Modal: Editar Convênio -->
+    <div v-if="exibirModalEditar" class="modal-overlay" @click.self="fecharModalEditar">
+      <div class="modal-container">
+        <div class="modal-header">
+          <h2>Editar Convênio</h2>
+          <button class="btn-fechar-modal" @click="fecharModalEditar">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form @submit.prevent="salvarEdicao">
+            <div class="field-group">
+              <label>Nome do Convênio <span class="obrigatorio">*</span></label>
+              <input v-model="formEditar.nome" type="text" required :disabled="enviandoEdicao" placeholder="Ex: Unimed, Bradesco Saúde..." />
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn-cancelar" @click="fecharModalEditar" :disabled="enviandoEdicao">Cancelar</button>
+              <button type="submit" class="btn-salvar" :disabled="enviandoEdicao">{{ enviandoEdicao ? 'Salvando...' : 'Salvar alterações' }}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Excluir Convênio -->
+    <div v-if="exibirModalExcluir" class="modal-overlay" @click.self="fecharModalExcluir">
+      <div class="modal-container modal-sm">
+        <div class="modal-header">
+          <h2>Excluir Convênio</h2>
+          <button class="btn-fechar-modal" @click="fecharModalExcluir">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="excluir-content">
+            <div class="excluir-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <p class="excluir-texto">Tem certeza que deseja excluir o convênio <strong>{{ convenioParaExcluir?.nome }}</strong>?</p>
+            <p class="excluir-aviso">Esta ação não pode ser desfeita.</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancelar" @click="fecharModalExcluir" :disabled="excluindo">Cancelar</button>
+            <button class="btn-excluir-confirmar" @click="confirmarExclusao" :disabled="excluindo">{{ excluindo ? 'Excluindo...' : 'Sim, excluir' }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div v-if="exibirModalNovo" class="modal-overlay" @click.self="fecharModalNovo">
       <div class="modal-container">
@@ -66,19 +126,71 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import api from '../../services/api'
 import { CreditCard, Loader2, Plus } from 'lucide-vue-next'
-
-// Importa o arquivo novo.vue para ser renderizado como Modal nesta mesma tela
 import ConvenioNovo from './novo.vue'
 
-const router = useRouter()
+definePageMeta({
+  layout: 'dashboard',
+  middleware: 'auth'
+})
+
+useHead({ title: 'Convênios' })
+
 const listaConvenios = ref([])
 const loading = ref(true)
+const toast = useToast()
 
-// Controle de estado do modal
+// --- Modal Novo ---
 const exibirModalNovo = ref(false)
+function abrirModalNovo() { exibirModalNovo.value = true }
+function fecharModalNovo() { exibirModalNovo.value = false }
+function aoSalvarNovo() { fecharModalNovo(); buscarConvenios() }
+
+// --- Modal Editar ---
+const exibirModalEditar = ref(false)
+const enviandoEdicao = ref(false)
+const formEditar = ref({ id: null, nome: '' })
+
+function abrirModalEditar(convenio) {
+  formEditar.value = { id: convenio.id, nome: convenio.nome }
+  exibirModalEditar.value = true
+}
+function fecharModalEditar() { exibirModalEditar.value = false }
+
+async function salvarEdicao() {
+  try {
+    enviandoEdicao.value = true
+    await api.put(`/convenios/${formEditar.value.id}`, { nome: formEditar.value.nome })
+    fecharModalEditar()
+    await buscarConvenios()
+  } catch (error) {
+    toast.erro(error.response?.data?.error || 'Erro ao atualizar convênio.')
+  } finally {
+    enviandoEdicao.value = false
+  }
+}
+
+// --- Modal Excluir ---
+const exibirModalExcluir = ref(false)
+const excluindo = ref(false)
+const convenioParaExcluir = ref(null)
+
+function abrirModalExcluir(convenio) { convenioParaExcluir.value = convenio; exibirModalExcluir.value = true }
+function fecharModalExcluir() { exibirModalExcluir.value = false }
+
+async function confirmarExclusao() {
+  try {
+    excluindo.value = true
+    await api.delete(`/convenios/${convenioParaExcluir.value.id}`)
+    fecharModalExcluir()
+    await buscarConvenios()
+  } catch (error) {
+    toast.erro('Erro ao excluir convênio. Verifique se não há pacientes vinculados.')
+  } finally {
+    excluindo.value = false
+  }
+}
 
 async function buscarConvenios() {
   try {
@@ -92,33 +204,33 @@ async function buscarConvenios() {
   }
 }
 
-function irParaEdicao(id) {
-  router.push(`/convenios/${id}`)
-}
-
-/* Funções de controle do Modal */
-function abrirModalNovo() {
-  exibirModalNovo.value = true
-}
-
-function fecharModalNovo() {
-  exibirModalNovo.value = false
-}
-
-function aoSalvarNovo() {
-  fecharModalNovo()
-  buscarConvenios() // Recarrega a tabela automaticamente após salvar
-}
-
 onMounted(() => {
   buscarConvenios()
 })
 </script>
 
 <style scoped>
-.page-wrapper { font-family: 'Inter', sans-serif; }
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Inter:wght@400;500;600&display=swap');
+
+.page-wrapper {
+  padding: 40px;
+  background-color: #f8fafc;
+  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
+}
+
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
-.bloco-titulo h1 { font-size: 28px; font-weight: 700; color: #0f172a; margin: 0 0 4px 0; }
+
+.bloco-titulo h1 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.5px;
+}
+
 .bloco-titulo p { margin: 0; color: #64748b; font-size: 14px; }
 
 /* Botão Verde Esmeralda igual ao de Pacientes */
@@ -137,8 +249,36 @@ onMounted(() => {
 .id-texto { color: #94a3b8; font-family: monospace; }
 .txt-direita { text-align: right !important; }
 
-.btn-editar { background: none; border: none; color: #00a86b; font-weight: 600; cursor: pointer; font-size: 14px; }
-.btn-editar:hover { color: #008f5d; text-decoration: underline; }
+.acoes { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.btn-editar { display: flex; align-items: center; gap: 6px; background: none; border: 1px solid #cbd5e1; color: #475569; padding: 7px 13px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; }
+.btn-editar:hover { background: #f0fdf4; border-color: #6ee7b7; color: #059669; }
+.btn-excluir { display: flex; align-items: center; gap: 6px; background: none; border: 1px solid #fca5a5; color: #dc2626; padding: 7px 13px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; }
+.btn-excluir:hover { background: #fef2f2; border-color: #f87171; }
+
+.field-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.field-group label { font-size: 13px; font-weight: 600; color: #475569; }
+.obrigatorio { color: #ef4444; }
+.field-group input { height: 42px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; font-size: 14px; font-family: 'Inter', sans-serif; color: #334155; background: #f8fafc; outline: none; transition: all 0.2s; box-sizing: border-box; width: 100%; }
+.field-group input:focus { border-color: #059669; background: #fff; box-shadow: 0 0 0 3px rgba(5,150,105,.08); }
+.field-group input:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+.btn-cancelar { background: #f1f5f9; color: #475569; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif; }
+.btn-cancelar:hover { background: #e2e8f0; }
+.btn-cancelar:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-salvar { background: #059669; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif; }
+.btn-salvar:hover { background: #047857; }
+.btn-salvar:disabled { opacity: 0.6; cursor: not-allowed; }
+.excluir-content { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 8px 0 24px; gap: 12px; }
+.excluir-icon { width: 52px; height: 52px; border-radius: 14px; background: #fef2f2; color: #dc2626; display: flex; align-items: center; justify-content: center; }
+.excluir-icon svg { width: 26px; height: 26px; }
+.excluir-texto { font-size: 15px; color: #1e293b; line-height: 1.5; margin: 0; }
+.excluir-aviso { font-size: 13px; color: #94a3b8; margin: 0; }
+.btn-excluir-confirmar { background: #dc2626; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif; }
+.btn-excluir-confirmar:hover { background: #b91c1c; }
+.btn-excluir-confirmar:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.modal-container.modal-sm { max-width: 420px; }
 
 .estado-carregamento { padding: 60px; display: flex; flex-direction: column; align-items: center; gap: 12px; color: #64748b; }
 .spinner { animation: rodar 1s linear infinite; color: #00a86b; }

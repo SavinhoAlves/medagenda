@@ -4,10 +4,9 @@ definePageMeta({
   middleware: 'auth'
 })
 
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import api from '../../services/api'
-// 1. Importe a sua store de autenticação e o roteador do Nuxt
-import { useAuthStore } from '../../stores/auth' 
+import { useAuthStore } from '../../stores/auth'
 import { useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -17,6 +16,15 @@ const authStore = useAuthStore()
 const paciente = ref(null)
 const loading = ref(true)
 const abaAtiva = ref('dados-pessoais')
+
+useHead(computed(() => ({ title: paciente.value ? paciente.value.nome : 'Paciente' })))
+const toast = useToast()
+
+// --- Modal Excluir ---
+const exibirModalExcluir = ref(false)
+const excluindo = ref(false)
+function abrirModalExcluir() { exibirModalExcluir.value = true }
+function fecharModalExcluir() { exibirModalExcluir.value = false }
 
 async function carregarPaciente() {
   try {
@@ -48,26 +56,25 @@ async function salvarPaciente() {
         Authorization: `Bearer ${token}`
       }
     })
-    alert('Alterações salvas com sucesso!')
+    toast.sucesso('Alterações salvas com sucesso!')
   } catch (error) {
     console.error('Erro ao salvar paciente:', error)
   }
 }
 
 async function excluirPaciente() {
-  if (confirm('Tem certeza que deseja excluir este paciente?')) {
-    try {
-      const token = authStore.accessToken || authStore.token || localStorage.getItem('token')
-      
-      await api.delete(`/pacientes/${route.params.id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
-      router.push('/pacientes')
-    } catch (error) {
-      console.error('Erro ao excluir paciente:', error)
-    }
+  try {
+    excluindo.value = true
+    const token = authStore.accessToken || authStore.token || localStorage.getItem('token')
+    await api.delete(`/pacientes/${route.params.id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    router.push('/pacientes')
+  } catch (error) {
+    console.error('Erro ao excluir paciente:', error)
+    fecharModalExcluir()
+  } finally {
+    excluindo.value = false
   }
 }
 
@@ -324,7 +331,7 @@ onMounted(() => {
         </main>
 
         <footer class="workspace-footer">
-          <button @click="excluirPaciente" class="btn-delete">
+          <button @click="abrirModalExcluir" class="btn-delete">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -342,6 +349,34 @@ onMounted(() => {
       </div>
 
     </div>
+
+    <!-- Modal: Confirmar Exclusão -->
+    <div v-if="exibirModalExcluir" class="modal-overlay" @click.self="fecharModalExcluir">
+      <div class="modal-confirm">
+        <div class="modal-confirm-header">
+          <h2>Excluir Paciente</h2>
+          <button class="btn-fechar" @click="fecharModalExcluir">&times;</button>
+        </div>
+        <div class="modal-confirm-body">
+          <div class="excluir-content">
+            <div class="excluir-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="26" height="26">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <p>Tem certeza que deseja excluir <strong>{{ paciente?.nome }}</strong>? Todos os dados serão removidos permanentemente.</p>
+          </div>
+          <div class="modal-confirm-footer">
+            <button class="btn-cancelar-modal" @click="fecharModalExcluir" :disabled="excluindo">Cancelar</button>
+            <button class="btn-excluir-modal" @click="excluirPaciente" :disabled="excluindo">
+              {{ excluindo ? 'Excluindo...' : 'Sim, excluir' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -720,4 +755,21 @@ input:checked + .slider:before { transform: translateX(16px); }
 .state-card { padding: 60px; text-align: center; color: #64748b; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .spinner { width: 28px; height: 28px; border: 3px solid rgba(0,102,204,0.1); border-radius: 50%; border-top-color: #0066cc; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Modal de confirmação */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15,23,42,.4); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.modal-confirm { background: #fff; border-radius: 16px; width: 100%; max-width: 420px; box-shadow: 0 20px 25px -5px rgba(0,0,0,.1); overflow: hidden; animation: aparecer .2s ease-out; }
+.modal-confirm-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+.modal-confirm-header h2 { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
+.btn-fechar { background: none; border: none; font-size: 24px; color: #94a3b8; cursor: pointer; }
+.modal-confirm-body { padding: 24px; }
+.excluir-content { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding-bottom: 20px; }
+.excluir-icon { width: 52px; height: 52px; border-radius: 14px; background: #fef2f2; color: #dc2626; display: flex; align-items: center; justify-content: center; }
+.excluir-content p { font-size: 14px; color: #475569; line-height: 1.6; margin: 0; }
+.modal-confirm-footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+.btn-cancelar-modal { background: #f1f5f9; color: #475569; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
+.btn-excluir-modal { background: #dc2626; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
+.btn-excluir-modal:hover { background: #b91c1c; }
+.btn-excluir-modal:disabled, .btn-cancelar-modal:disabled { opacity: 0.6; cursor: not-allowed; }
+@keyframes aparecer { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
 </style>
