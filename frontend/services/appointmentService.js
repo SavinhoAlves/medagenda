@@ -1,4 +1,4 @@
-import api from '../../backend/src/services/api'
+import api from './api'
 
 export default {
   listarTodas() {
@@ -9,5 +9,8 @@ export default {
   },
   atualizar(id, dados) {
     return api.put(`/consultas/${id}`, dados)
+  },
+  excluir(id) {
+    return api.delete(`/consultas/${id}`)
   }
 }

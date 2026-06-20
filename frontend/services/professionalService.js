@@ -1,4 +1,4 @@
-import api from '../../backend/src/services/api'
+import api from './api'
 
 export default {
   listarTodos() {

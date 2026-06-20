@@ -43,7 +43,7 @@ exports.resumo = async (req, res) => {
         take: 5,
 
         orderBy: {
-          criadoEm: 'desc'
+          dataInicio: 'desc'
         },
 
         include: {

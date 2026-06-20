@@ -13,10 +13,10 @@ router.get(
   pacienteController.listar
 )
 
-router.get(
-  '/:id/convenios',
-  pacienteController.listarConvenios
-)
+router.get('/:id/convenios', pacienteController.listarConvenios)
+router.post('/:id/convenios', pacienteController.vincularConvenio)
+router.patch('/:id/convenios/:convenioId', pacienteController.atualizarConvenio)
+router.delete('/:id/convenios/:convenioId', pacienteController.desvincularConvenio)
 
 router.get(
   '/:id',

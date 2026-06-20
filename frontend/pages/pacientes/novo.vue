@@ -1,9 +1,11 @@
 <script setup>
 import { ref } from 'vue'
 import api from '~/services/api'
+import { useMascaras } from '~/composables/useMascaras'
 
 const emit = defineEmits(['fechar', 'salvo'])
 const toast = useToast()
+const { mascaraCpf, mascaraTelefone, mascaraData, mascaraCep, mascaraRg, mascaraCns } = useMascaras()
 
 const loading = ref(false)
 const abaAtiva = ref('pessoais')
@@ -43,10 +45,11 @@ const form = ref({
 async function salvarPaciente() {
   loading.value = true
   try {
-    await api.post('/pacientes', form.value)
-    emit('salvo')
+    const { data } = await api.post('/pacientes', form.value)
+    toast.sucesso('Paciente cadastrado com sucesso!')
+    emit('salvo', data)
   } catch (error) {
-    toast.erro('Erro ao salvar paciente.')
+    toast.erro(error.response?.data?.error || 'Erro ao salvar paciente.')
   } finally {
     loading.value = false
   }
@@ -80,7 +83,7 @@ async function salvarPaciente() {
       </div>
       <div class="field-group">
         <label>Data de Nascimento</label>
-        <input v-model="form.dataNascimento" type="text" placeholder="DD/MM/AAAA" maxlength="10" :disabled="loading" />
+        <input :value="form.dataNascimento" @input="form.dataNascimento = mascaraData($event.target.value)" type="text" placeholder="DD/MM/AAAA" maxlength="10" :disabled="loading" />
       </div>
       <div class="field-group">
         <label>Sexo</label>
@@ -91,11 +94,11 @@ async function salvarPaciente() {
       </div>
       <div class="field-group">
         <label>CPF</label>
-        <input v-model="form.cpf" type="text" placeholder="000.000.000-00" maxlength="14" :disabled="loading" />
+        <input :value="form.cpf" @input="form.cpf = mascaraCpf($event.target.value)" type="text" placeholder="000.000.000-00" maxlength="14" :disabled="loading" />
       </div>
       <div class="field-group">
         <label>RG</label>
-        <input v-model="form.rg" type="text" placeholder="00.000.000-0" :disabled="loading" />
+        <input :value="form.rg" @input="form.rg = mascaraRg($event.target.value)" type="text" placeholder="00.000.000-0" maxlength="12" :disabled="loading" />
       </div>
       <div class="field-group span-2">
         <label>E-mail</label>
@@ -103,19 +106,19 @@ async function salvarPaciente() {
       </div>
       <div class="field-group">
         <label>Celular</label>
-        <input v-model="form.celular" type="text" placeholder="(00) 00000-0000" maxlength="15" :disabled="loading" />
+        <input :value="form.celular" @input="form.celular = mascaraTelefone($event.target.value)" type="text" placeholder="(00) 00000-0000" maxlength="15" :disabled="loading" />
       </div>
       <div class="field-group">
         <label>Telefone Residencial</label>
-        <input v-model="form.casa" type="text" placeholder="(00) 0000-0000" maxlength="14" :disabled="loading" />
+        <input :value="form.casa" @input="form.casa = mascaraTelefone($event.target.value)" type="text" placeholder="(00) 0000-0000" maxlength="14" :disabled="loading" />
       </div>
       <div class="field-group">
         <label>Telefone Trabalho</label>
-        <input v-model="form.trabalho" type="text" placeholder="(00) 0000-0000" maxlength="14" :disabled="loading" />
+        <input :value="form.trabalho" @input="form.trabalho = mascaraTelefone($event.target.value)" type="text" placeholder="(00) 0000-0000" maxlength="14" :disabled="loading" />
       </div>
       <div class="field-group">
         <label>CNS</label>
-        <input v-model="form.cns" type="text" placeholder="Cartão Nacional de Saúde" :disabled="loading" />
+        <input :value="form.cns" @input="form.cns = mascaraCns($event.target.value)" type="text" placeholder="000 0000 0000 0000" maxlength="18" :disabled="loading" />
       </div>
       <div class="field-group span-2">
         <label class="label-switch">
@@ -132,7 +135,7 @@ async function salvarPaciente() {
     <div v-if="abaAtiva === 'endereco'" class="form-grid">
       <div class="field-group">
         <label>CEP</label>
-        <input v-model="form.cep" type="text" placeholder="00000-000" maxlength="9" :disabled="loading" />
+        <input :value="form.cep" @input="form.cep = mascaraCep($event.target.value)" type="text" placeholder="00000-000" maxlength="9" :disabled="loading" />
       </div>
       <div class="field-group">
         <label>País</label>
@@ -279,6 +282,7 @@ async function salvarPaciente() {
   display: flex;
   flex-direction: column;
   gap: 0;
+  padding: 24px;
 }
 
 /* Abas */

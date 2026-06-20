@@ -1,494 +1,812 @@
-<template>
-  <div v-if="aberto" class="modal-overlay" @click.self="emit('fechar')">
-    <div class="modal-container">
-      
-      <header class="modal-header">
-        <div class="header-titulo">
-          <component :is="form.id ? CalendarClock : CalendarPlus" class="icone-header" />
-          <h2>{{ form.id ? 'Editar Agendamento' : 'Novo Agendamento' }}</h2>
-        </div>
-        <button class="btn-fechar" @click="emit('fechar')" title="Fechar">
-          <X :size="20" />
-        </button>
-      </header>
-
-      <form @submit.prevent="manipularSalvar" class="modal-form">
-        
-        <div class="form-group">
-          <label for="paciente">
-            <User :size="16" class="icone-input" /> Paciente <span class="obrigatorio">*</span>
-          </label>
-          <select id="paciente" v-model="localForm.pacienteId" required :disabled="carregando">
-            <option value="" disabled>Selecione um paciente...</option>
-            <option v-for="p in listaPacientes" :key="p.id" :value="p.id">
-              {{ p.nome }}
-            </option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="profissional">
-            <Stethoscope :size="16" class="icone-input" /> Profissional <span class="obrigatorio">*</span>
-          </label>
-          <select id="profissional" v-model="localForm.profissionalId" required :disabled="carregando">
-            <option value="" disabled>Selecione um profissional...</option>
-            <option v-for="prof in listaProfissionais" :key="prof.id" :value="prof.id">
-              {{ prof.nome }} — {{ prof.especialidade?.nome || 'Geral' }}
-            </option>
-          </select>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="dataInicio">
-              <Clock :size="16" class="icone-input" /> Início <span class="obrigatorio">*</span>
-            </label>
-            <input 
-              type="datetime-local" 
-              id="dataInicio" 
-              v-model="localForm.dataInicio" 
-              required 
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="dataFim">
-              <Clock :size="16" class="icone-input" /> Término <span class="obrigatorio">*</span>
-            </label>
-            <input 
-              type="datetime-local" 
-              id="dataFim" 
-              v-model="localForm.dataFim" 
-              required 
-            />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="procedimento">
-              <Activity :size="16" class="icone-input" /> Procedimento
-            </label>
-            <select id="procedimento" v-model="localForm.procedimento">
-              <option v-for="item in listaProcedimentos" :key="item.value" :value="item.value">
-                {{ item.label }}
-              </option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="convenio">
-              <CreditCard :size="16" class="icone-input" /> Convênio
-            </label>
-            <select id="convenio" v-model="localForm.convenioId" :disabled="carregando">
-              <option value="">Particular / Nenhum</option>
-              <option v-for="item in conveniosDisponiveis" :key="item.id" :value="item.id">
-                {{ item.nome }}{{ item.numeroCarteira ? ` — Carteira: ${item.numeroCarteira}` : '' }}
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="sala">
-            <MapPin :size="16" class="icone-input" /> Sala / Consultório
-          </label>
-          <input type="text" id="sala" v-model="localForm.sala" placeholder="Ex: Sala 204, Bloco B" />
-        </div>
-
-        <div class="form-group">
-          <label for="observacoes">
-            <FileText :size="16" class="icone-input" /> Observações Internas
-          </label>
-          <textarea 
-            id="observacoes" 
-            v-model="localForm.observacoes" 
-            rows="3" 
-            placeholder="Informações adicionais sobre o agendamento..."
-          ></textarea>
-        </div>
-
-        <footer class="modal-footer">
-          <button type="button" class="btn-cancelar" @click="emit('fechar')" :disabled="carregando">
-            Cancelar
-          </button>
-          <button type="submit" class="btn-salvar" :disabled="carregando">
-            <Check :size="16" style="margin-right: 4px;" />
-            {{ carregando ? 'Salvando...' : (form.id ? 'Atualizar' : 'Confirmar') }}
-          </button>
-        </footer>
-      </form>
-    </div>
-  </div>
-</template>
-
 <script setup>
 import { ref, watch, reactive, computed } from 'vue'
 import api from '../../services/api'
 
-// Importando os ícones desejados do Lucide Vue
-import { 
-  X, 
-  User, 
-  Stethoscope, 
-  Clock, 
-  Activity, 
-  CreditCard, 
-  MapPin, 
-  FileText, 
-  CalendarPlus, 
-  CalendarClock,
-  Check
-} from 'lucide-vue-next'
-
 const props = defineProps({
-  aberto: Boolean,
-  form: {
-    type: Object,
-    default: () => ({})
-  },
-  pacientes: {
-    type: Array,
-    default: null
-  },
-  profissionais: {
-    type: Array,
-    default: null
-  }
+  aberto:    { type: Boolean },
+  form:      { type: Object,  default: () => ({}) },
+  pacientes: { type: Array,   default: null },
+  profissionais: { type: Array, default: null },
+  isAdmin:   { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['fechar', 'salvar'])
+const emit = defineEmits(['fechar', 'salvar', 'excluido'])
 
-// Estados dos dados vindo do banco
-const listaPacientes = ref([])
+const listaPacientes    = ref([])
 const listaProfissionais = ref([])
-const listaConvenios = ref([])
+const listaConvenios    = ref([])
 const conveniosDoPaciente = ref([])
-const carregando = ref(false)
+const carregando  = ref(false)
+const salvando    = ref(false)
+const editando    = ref(false)
 
-// Tipos de procedimento mapeados para os campos retorno/titulo da Consulta
-const listaProcedimentos = [
-  { value: 'CONSULTA', label: 'Consulta Médica' },
-  { value: 'RETORNO', label: 'Retorno' },
-  { value: 'EXAME', label: 'Exame Diagnóstico' }
+const telaExcluir   = ref(false)
+const justificativa = ref('')
+const excluindo     = ref(false)
+const enviando      = ref(false)
+
+const procedimentos = [
+  { value: 'CONSULTA', label: 'Consulta' },
+  { value: 'RETORNO',  label: 'Retorno'  },
+  { value: 'EXAME',    label: 'Exame'    },
 ]
 
-const conveniosDisponiveis = computed(() => {
-  if (conveniosDoPaciente.value.length > 0) {
-    return conveniosDoPaciente.value
-  }
-  return listaConvenios.value
-})
-
 const localForm = reactive({
-  id: null,
-  pacienteId: '',
-  profissionalId: '',
-  dataInicio: '',
-  dataFim: '',
-  procedimento: 'CONSULTA',
-  convenioId: '',
-  sala: '',
-  observacoes: ''
+  id: null, pacienteId: '', profissionalId: '',
+  dataInicio: '', dataFim: '', procedimento: 'CONSULTA',
+  convenioId: '', sala: '', observacoes: '',
 })
 
-async function carregarConveniosDoPaciente(pacienteId) {
-  if (!pacienteId) {
-    conveniosDoPaciente.value = []
-    return
-  }
+const modoEdicao = computed(() => !!localForm.id)
+const conveniosDisponiveis = computed(() =>
+  conveniosDoPaciente.value.length > 0 ? conveniosDoPaciente.value : listaConvenios.value
+)
 
-  try {
-    const res = await api.get(`/pacientes/${pacienteId}/convenios`)
-    conveniosDoPaciente.value = res.data
-  } catch (error) {
-    console.error('Erro ao buscar convênios do paciente:', error)
-    conveniosDoPaciente.value = []
-  }
+const pacienteNome = computed(() =>
+  listaPacientes.value.find(p => p.id === Number(localForm.pacienteId))?.nome || '—'
+)
+const profissionalSelecionado = computed(() =>
+  listaProfissionais.value.find(p => p.id === Number(localForm.profissionalId))
+)
+const convenioSelecionado = computed(() =>
+  conveniosDisponiveis.value.find(c => c.id === Number(localForm.convenioId))
+)
+const procedimentoLabel = computed(() =>
+  procedimentos.find(p => p.value === localForm.procedimento)?.label || localForm.procedimento
+)
+
+const tituloModal = computed(() => {
+  if (telaExcluir.value === 'confirmar') return 'Excluir consulta'
+  if (telaExcluir.value === 'solicitar') return 'Solicitar exclusão'
+  if (telaExcluir.value === 'enviado')   return 'Solicitação enviada'
+  if (modoEdicao.value && !editando.value) return 'Detalhes da consulta'
+  if (editando.value) return 'Editar consulta'
+  return 'Nova consulta'
+})
+const subtituloModal = computed(() => {
+  if (telaExcluir.value) return ''
+  if (modoEdicao.value && !editando.value) return 'Informações do agendamento'
+  if (editando.value) return 'Altere os dados do agendamento'
+  return 'Preencha os dados do agendamento'
+})
+
+function formatarParaInput(data) {
+  if (!data) return ''
+  const d = new Date(data)
+  if (isNaN(d.getTime())) return ''
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-async function carregarDadosDoBanco() {
+function formatarExibicao(valor) {
+  if (!valor) return '—'
+  const d = new Date(valor)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleString('pt-BR', {
+    weekday: 'long', day: '2-digit', month: 'long',
+    year: 'numeric', hour: '2-digit', minute: '2-digit'
+  })
+}
+
+function imprimirFicha() {
+  const nomePac = pacienteNome.value
+  const nomePro = profissionalSelecionado.value?.nome || '—'
+  const espec   = profissionalSelecionado.value?.especialidade?.nome || ''
+  const dataI   = formatarExibicao(localForm.dataInicio)
+  const dataF   = formatarExibicao(localForm.dataFim)
+  const tipo    = procedimentoLabel.value
+  const conv    = convenioSelecionado.value?.nome || 'Particular'
+  const sala    = localForm.sala || '—'
+  const obs     = localForm.observacoes || ''
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Ficha - ${nomePac}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;padding:48px 40px;color:#1e293b}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #059669}
+    .logo{font-size:18px;font-weight:800;color:#059669}
+    .meta{font-size:12px;color:#94a3b8;text-align:right;line-height:1.6}
+    h2{font-size:14px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px}
+    .section{margin-bottom:28px}
+    .row{display:flex;padding:10px 0;border-bottom:1px solid #f1f5f9}
+    .lbl{width:150px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.4px;flex-shrink:0}
+    .val{font-size:14px;color:#1e293b}
+    .obs-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;font-size:13px;color:#475569;line-height:1.6}
+    @media print{body{padding:24px 20px}}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">+ MedAgenda</div>
+    <div class="meta">Ficha de Consulta<br>${new Date().toLocaleDateString('pt-BR')}</div>
+  </div>
+  <div class="section">
+    <h2>Agendamento</h2>
+    <div class="row"><span class="lbl">Paciente</span><span class="val">${nomePac}</span></div>
+    <div class="row"><span class="lbl">Profissional</span><span class="val">${nomePro}${espec ? ' — ' + espec : ''}</span></div>
+    <div class="row"><span class="lbl">Início</span><span class="val">${dataI}</span></div>
+    <div class="row"><span class="lbl">Término</span><span class="val">${dataF}</span></div>
+    <div class="row"><span class="lbl">Tipo</span><span class="val">${tipo}</span></div>
+    <div class="row"><span class="lbl">Convênio</span><span class="val">${conv}</span></div>
+    <div class="row"><span class="lbl">Sala</span><span class="val">${sala}</span></div>
+  </div>
+  ${obs ? `<div class="section"><h2>Observações</h2><div class="obs-box">${obs}</div></div>` : ''}
+  <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close()}<\/script>
+</body>
+</html>`
+
+  const win = window.open('', '_blank', 'width=720,height=680')
+  if (win) { win.document.write(html); win.document.close() }
+}
+
+async function carregarConveniosDoPaciente(id) {
+  if (!id) { conveniosDoPaciente.value = []; return }
   try {
-    carregando.value = true
+    conveniosDoPaciente.value = (await api.get(`/pacientes/${id}/convenios`)).data
+  } catch { conveniosDoPaciente.value = [] }
+}
 
+async function carregarDados() {
+  carregando.value = true
+  try {
     const tarefas = [api.get('/convenios')]
-
-    if (!props.pacientes?.length) {
-      tarefas.push(api.get('/pacientes'))
-    }
-
-    if (!props.profissionais?.length) {
-      tarefas.push(api.get('/profissionais'))
-    }
-
-    const resultados = await Promise.all(tarefas)
-    let indice = 0
-
-    listaConvenios.value = resultados[indice++].data
-
-    if (!props.pacientes?.length) {
-      listaPacientes.value = resultados[indice++].data
-    } else {
-      listaPacientes.value = props.pacientes
-    }
-
-    if (!props.profissionais?.length) {
-      listaProfissionais.value = resultados[indice++].data
-    } else {
-      listaProfissionais.value = props.profissionais
-    }
-  } catch (error) {
-    console.error('Erro ao buscar dados:', error)
+    if (!props.pacientes?.length)     tarefas.push(api.get('/pacientes'))
+    if (!props.profissionais?.length) tarefas.push(api.get('/profissionais'))
+    const res = await Promise.all(tarefas)
+    let i = 0
+    listaConvenios.value     = res[i++].data
+    listaPacientes.value     = props.pacientes?.length     ? props.pacientes     : res[i++].data
+    listaProfissionais.value = props.profissionais?.length ? props.profissionais : res[i++].data
+  } catch (err) {
+    console.error('[ModalConsulta] Erro ao carregar dados:', err)
   } finally {
     carregando.value = false
   }
 }
 
-function obterProcedimento(consulta) {
-  if (consulta.retorno) return 'RETORNO'
-  if (consulta.titulo === 'Exame Diagnóstico') return 'EXAME'
-  return 'CONSULTA'
-}
-
-function obterConvenioIdPorNome(nomeConvenio) {
-  if (!nomeConvenio) return ''
-
-  const todasListas = [...conveniosDoPaciente.value, ...listaConvenios.value]
-  const convenio = todasListas.find(
-    (item) => item.nome.toLowerCase() === nomeConvenio.toLowerCase()
-  )
-
-  return convenio?.id ?? ''
-}
-
-function formatarDataParaInput(data) {
-  if (!data) return ''
-  const d = new Date(data)
-  if (isNaN(d.getTime())) return ''
-  const ano = d.getFullYear()
-  const mes = String(d.getMonth() + 1).padStart(2, '0')
-  const dia = String(d.getDate()).padStart(2, '0')
-  const hora = String(d.getHours()).padStart(2, '0')
-  const minuto = String(d.getMinutes()).padStart(2, '0')
-  return `${ano}-${mes}-${dia}T${hora}:${minuto}`
-}
-
-watch(() => props.aberto, async (novoValor) => {
-  if (novoValor) {
-    await carregarDadosDoBanco()
-
-    if (props.form && props.form.id) {
-      localForm.id = props.form.id
-      localForm.pacienteId = props.form.pacienteId
-      localForm.profissionalId = props.form.profissionalId
-      localForm.dataInicio = formatarDataParaInput(props.form.dataInicio)
-      localForm.dataFim = formatarDataParaInput(props.form.dataFim)
-      localForm.sala = props.form.sala || ''
-      localForm.observacoes = props.form.observacoes || ''
-      localForm.procedimento = obterProcedimento(props.form)
-
-      await carregarConveniosDoPaciente(props.form.pacienteId)
-
-      const nomeConvenio = props.form.descricao?.replace('Convênio: ', '') || ''
-      localForm.convenioId = obterConvenioIdPorNome(nomeConvenio)
-    } else {
-      localForm.id = null
-      localForm.pacienteId = ''
-      localForm.profissionalId = ''
-      localForm.dataInicio = formatarDataParaInput(props.form?.dataInicio || new Date())
-      localForm.dataFim = formatarDataParaInput(props.form?.dataFim || new Date(Date.now() + 30 * 60 * 1000))
-      localForm.sala = ''
-      localForm.observacoes = ''
-      localForm.procedimento = 'CONSULTA'
-      localForm.convenioId = ''
-      conveniosDoPaciente.value = []
-    }
-  }
+watch(() => props.aberto, async (aberto) => {
+  if (!aberto) return
+  telaExcluir.value = false
+  justificativa.value = ''
+  editando.value = false
+  await carregarDados()
+  const f = props.form || {}
+  const agora   = new Date()
+  const em30min = new Date(agora.getTime() + 30 * 60 * 1000)
+  localForm.id             = f.id || null
+  localForm.pacienteId     = f.pacienteId    || ''
+  localForm.profissionalId = f.profissionalId || ''
+  localForm.dataInicio     = formatarParaInput(f.dataInicio) || formatarParaInput(agora)
+  localForm.dataFim        = formatarParaInput(f.dataFim)    || formatarParaInput(em30min)
+  localForm.procedimento   = f.procedimento || 'CONSULTA'
+  localForm.convenioId     = f.convenioId   || ''
+  localForm.sala           = f.sala         || ''
+  localForm.observacoes    = f.observacoes  || ''
+  conveniosDoPaciente.value = []
+  if (localForm.pacienteId) await carregarConveniosDoPaciente(localForm.pacienteId)
 })
 
-watch(() => localForm.pacienteId, async (pacienteId, pacienteAnterior) => {
+watch(() => localForm.pacienteId, async (novo, anterior) => {
   if (!props.aberto) return
-
-  await carregarConveniosDoPaciente(pacienteId)
-
-  if (pacienteAnterior && pacienteId !== pacienteAnterior) {
-    localForm.convenioId = ''
-  }
+  await carregarConveniosDoPaciente(novo)
+  if (anterior && novo !== anterior) localForm.convenioId = ''
 })
 
-function manipularSalvar() {
-  const convenioSelecionado = conveniosDisponiveis.value.find(
-    (item) => item.id === Number(localForm.convenioId)
-  )
+function confirmar() {
+  const convenio = conveniosDisponiveis.value.find(c => c.id === Number(localForm.convenioId))
+  salvando.value = true
+  emit('salvar', { ...localForm, convenio: convenio?.nome || '' })
+  salvando.value = false
+}
 
-  emit('salvar', {
-    ...localForm,
-    convenio: convenioSelecionado?.nome || ''
-  })
+function abrirExcluir() {
+  justificativa.value = ''
+  telaExcluir.value = props.isAdmin ? 'confirmar' : 'solicitar'
+}
+
+async function executarExclusao() {
+  if (!justificativa.value.trim()) return
+  excluindo.value = true
+  try {
+    await api.delete(`/consultas/${localForm.id}`)
+    emit('excluido', localForm.id)
+    emit('fechar')
+  } catch (err) {
+    console.error('[ModalConsulta] Erro ao excluir:', err)
+  } finally {
+    excluindo.value = false
+  }
+}
+
+async function enviarSolicitacao() {
+  if (!justificativa.value.trim()) return
+  enviando.value = true
+  try {
+    await api.post('/solicitacoes-exclusao', {
+      consultaId: localForm.id,
+      motivo:     justificativa.value.trim(),
+    })
+    telaExcluir.value = 'enviado'
+  } catch (err) {
+    console.error('[ModalConsulta] Erro ao enviar solicitação:', err)
+  } finally {
+    enviando.value = false
+  }
 }
 </script>
 
+<template>
+  <div v-if="aberto" class="overlay" @click.self="emit('fechar')">
+    <div class="modal">
+
+      <!-- ─── Header ─── -->
+      <div class="modal-header">
+        <div class="header-left">
+          <div class="header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18">
+              <rect x="3" y="4" width="18" height="18" rx="2"/>
+              <path d="M16 2v4M8 2v4M3 10h18"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="modal-titulo">{{ tituloModal }}</h2>
+            <p v-if="subtituloModal" class="modal-subtitulo">{{ subtituloModal }}</p>
+          </div>
+        </div>
+        <button class="btn-fechar" @click="emit('fechar')">&times;</button>
+      </div>
+
+      <!-- ─── Tela: Detalhes da consulta ─── -->
+      <div v-if="modoEdicao && !editando && !telaExcluir" class="modal-body">
+
+        <div class="detail-group">
+          <div class="detail-item">
+            <span class="detail-label">Paciente</span>
+            <span class="detail-value">{{ pacienteNome }}</span>
+          </div>
+          <div class="detail-divider"></div>
+          <div class="detail-item">
+            <span class="detail-label">Profissional</span>
+            <span class="detail-value">
+              {{ profissionalSelecionado?.nome || '—' }}
+              <span v-if="profissionalSelecionado?.especialidade?.nome" class="espec-tag">
+                {{ profissionalSelecionado.especialidade.nome }}
+              </span>
+            </span>
+          </div>
+        </div>
+
+        <div class="detail-group">
+          <div class="detail-item">
+            <span class="detail-label">Início</span>
+            <span class="detail-value detail-value--date">{{ formatarExibicao(localForm.dataInicio) }}</span>
+          </div>
+          <div class="detail-divider"></div>
+          <div class="detail-item">
+            <span class="detail-label">Término</span>
+            <span class="detail-value detail-value--date">{{ formatarExibicao(localForm.dataFim) }}</span>
+          </div>
+        </div>
+
+        <div class="detail-group">
+          <div class="detail-item">
+            <span class="detail-label">Tipo</span>
+            <span class="detail-value">
+              <span class="tipo-badge" :data-tipo="localForm.procedimento">{{ procedimentoLabel }}</span>
+            </span>
+          </div>
+          <div class="detail-divider"></div>
+          <div class="detail-item">
+            <span class="detail-label">Convênio</span>
+            <span class="detail-value">{{ convenioSelecionado?.nome || 'Particular' }}</span>
+          </div>
+          <template v-if="localForm.sala">
+            <div class="detail-divider"></div>
+            <div class="detail-item">
+              <span class="detail-label">Sala</span>
+              <span class="detail-value">{{ localForm.sala }}</span>
+            </div>
+          </template>
+        </div>
+
+        <div v-if="localForm.observacoes" class="detail-group detail-group--obs">
+          <span class="detail-label">Observações</span>
+          <p class="detail-obs-text">{{ localForm.observacoes }}</p>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-excluir-link" @click="abrirExcluir">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+            Excluir
+          </button>
+          <div class="footer-right">
+            <button type="button" class="btn-imprimir" @click="imprimirFicha">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <polyline points="6 9 6 2 18 2 18 9"/>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                <rect x="6" y="14" width="12" height="8"/>
+              </svg>
+              Imprimir ficha
+            </button>
+            <button type="button" class="btn-salvar" @click="editando = true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+              Editar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── Tela: Formulário (novo ou editar) ─── -->
+      <div v-else-if="!telaExcluir" class="modal-body">
+        <form @submit.prevent="confirmar">
+
+          <div class="form-grid-2">
+            <div class="field-group">
+              <label>Paciente <span class="req">*</span></label>
+              <select v-model="localForm.pacienteId" class="field-input" required :disabled="carregando">
+                <option value="" disabled>Selecione...</option>
+                <option v-for="p in listaPacientes" :key="p.id" :value="p.id">{{ p.nome }}</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label>Profissional <span class="req">*</span></label>
+              <select v-model="localForm.profissionalId" class="field-input" required :disabled="carregando">
+                <option value="" disabled>Selecione...</option>
+                <option v-for="p in listaProfissionais" :key="p.id" :value="p.id">
+                  {{ p.nome }}{{ p.especialidade?.nome ? ` — ${p.especialidade.nome}` : '' }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="field-group">
+              <label>Início <span class="req">*</span></label>
+              <input type="datetime-local" v-model="localForm.dataInicio" class="field-input" required />
+            </div>
+            <div class="field-group">
+              <label>Término <span class="req">*</span></label>
+              <input type="datetime-local" v-model="localForm.dataFim" class="field-input" required />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="field-group">
+              <label>Tipo</label>
+              <select v-model="localForm.procedimento" class="field-input">
+                <option v-for="p in procedimentos" :key="p.value" :value="p.value">{{ p.label }}</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label>Convênio</label>
+              <select v-model="localForm.convenioId" class="field-input" :disabled="carregando">
+                <option value="">Particular</option>
+                <option v-for="c in conveniosDisponiveis" :key="c.id" :value="c.id">
+                  {{ c.nome }}{{ c.numeroCarteira ? ` · ${c.numeroCarteira}` : '' }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label>Sala / Consultório</label>
+            <input type="text" v-model="localForm.sala" class="field-input" placeholder="Ex: Sala 3, Bloco B" />
+          </div>
+
+          <div class="field-group">
+            <label>Observações</label>
+            <textarea v-model="localForm.observacoes" class="field-input field-textarea" rows="3" placeholder="Anotações internas..."></textarea>
+          </div>
+
+          <div class="modal-footer">
+            <div></div>
+            <div class="footer-right">
+              <button
+                type="button"
+                class="btn-cancelar"
+                @click="editando ? (editando = false) : emit('fechar')"
+                :disabled="salvando"
+              >
+                {{ editando ? 'Voltar' : 'Cancelar' }}
+              </button>
+              <button type="submit" class="btn-salvar" :disabled="carregando || salvando">
+                {{ salvando ? 'Salvando...' : (modoEdicao ? 'Salvar alterações' : 'Confirmar agendamento') }}
+              </button>
+            </div>
+          </div>
+
+        </form>
+      </div>
+
+      <!-- ─── Tela: Admin confirma exclusão ─── -->
+      <div v-else-if="telaExcluir === 'confirmar'" class="modal-body tela-exclusao">
+        <div class="excluir-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="26" height="26">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <h3 class="excluir-titulo">Excluir esta consulta?</h3>
+        <p class="excluir-desc">Esta ação é permanente e não pode ser desfeita. Informe o motivo para fins de registro.</p>
+
+        <div class="field-group" style="width: 100%;">
+          <label>Justificativa <span class="req">*</span></label>
+          <textarea
+            v-model="justificativa"
+            class="field-input field-textarea"
+            rows="3"
+            placeholder="Ex: Consulta criada em duplicidade..."
+          ></textarea>
+        </div>
+
+        <div class="excluir-footer">
+          <button class="btn-cancelar" @click="telaExcluir = false" :disabled="excluindo">Voltar</button>
+          <button
+            class="btn-excluir-confirmar"
+            @click="executarExclusao"
+            :disabled="!justificativa.trim() || excluindo"
+          >
+            {{ excluindo ? 'Excluindo...' : 'Confirmar exclusão' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- ─── Tela: Não-admin solicita exclusão ─── -->
+      <div v-else-if="telaExcluir === 'solicitar'" class="modal-body tela-exclusao">
+        <div class="excluir-icon excluir-icon--info">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="26" height="26">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <h3 class="excluir-titulo">Solicitar exclusão</h3>
+        <p class="excluir-desc">Somente administradores podem excluir consultas. Informe o motivo e a solicitação será enviada para aprovação.</p>
+
+        <div class="field-group" style="width: 100%;">
+          <label>Motivo da solicitação <span class="req">*</span></label>
+          <textarea
+            v-model="justificativa"
+            class="field-input field-textarea"
+            rows="3"
+            placeholder="Descreva o motivo da exclusão..."
+          ></textarea>
+        </div>
+
+        <div class="excluir-footer">
+          <button class="btn-cancelar" @click="telaExcluir = false">Voltar</button>
+          <button class="btn-salvar" @click="enviarSolicitacao" :disabled="!justificativa.trim() || enviando">
+            {{ enviando ? 'Enviando...' : 'Enviar solicitação' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- ─── Tela: Solicitação enviada ─── -->
+      <div v-else-if="telaExcluir === 'enviado'" class="modal-body tela-exclusao">
+        <div class="excluir-icon excluir-icon--ok">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="26" height="26">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <h3 class="excluir-titulo">Solicitação enviada</h3>
+        <p class="excluir-desc">O administrador foi notificado e irá avaliar a solicitação de exclusão.</p>
+        <button class="btn-salvar" style="margin-top: 8px;" @click="emit('fechar')">Fechar</button>
+      </div>
+
+    </div>
+  </div>
+</template>
+
 <style scoped>
-.modal-overlay {
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Inter:wght@400;500;600&display=swap');
+
+.overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(15, 23, 42, 0.4); /* Backdrop moderno ligeiramente azulado */
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 999;
-}
-
-.modal-container {
-  background-color: #ffffff;
-  border-radius: 8px;
-  width: 520px;
-  max-width: 90%;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  font-family: 'Inter', sans-serif;
-}
-
-.modal-header {
-  padding: 16px 20px;
-  background-color: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-titulo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.icone-header {
-  color: #2563eb;
-  width: 20px;
-  height: 20px;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.btn-fechar {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  padding: 4px;
-  border-radius: 4px;
-}
-
-.btn-fechar:hover {
-  background-color: #f1f5f9;
-  color: #0f172a;
-}
-
-.modal-form {
   padding: 20px;
 }
 
-.form-group {
-  margin-bottom: 16px;
+.modal {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  overflow: hidden;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.18);
+  animation: slideUp 0.2s ease-out;
 }
 
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
 }
 
-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: #475569;
+/* Header */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.header-left { display: flex; align-items: center; gap: 12px; }
+
+.header-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: rgba(5, 150, 105, 0.1);
+  color: #059669;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.modal-titulo {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 16px; font-weight: 700; color: #0f172a;
+  margin: 0 0 2px;
+}
+
+.modal-subtitulo {
+  font-size: 12px; color: #94a3b8; margin: 0;
+  font-family: 'Inter', sans-serif;
+}
+
+.btn-fechar {
+  background: none; border: none;
+  font-size: 26px; line-height: 1;
+  color: #94a3b8; cursor: pointer; padding: 4px;
+  transition: color 0.15s;
+}
+.btn-fechar:hover { color: #475569; }
+
+/* Body */
+.modal-body { overflow-y: auto; padding: 24px; }
+
+/* ── Detail view ── */
+.detail-group {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.detail-group--obs {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
 }
 
-.icone-input {
+.detail-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 0 16px;
+}
+
+.detail-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
   color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.obrigatorio {
-  color: #ef4444;
-}
-
-input, select, textarea {
-  padding: 8px 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  font-size: 14px;
-  color: #334155;
-  background-color: #fff;
-  font-family: inherit;
-}
-
-input:focus, select:focus, textarea:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-}
-
-.modal-footer {
-  margin-top: 20px;
+.detail-value {
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #1e293b;
+  text-align: right;
   display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 12px;
 }
+
+.detail-value--date {
+  font-size: 13px;
+  color: #334155;
+  text-transform: capitalize;
+}
+
+.detail-obs-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-line;
+}
+
+.espec-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #2563eb;
+  background: #eff6ff;
+  border-radius: 5px;
+  padding: 2px 7px;
+}
+
+.tipo-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: #f0fdf4;
+  color: #059669;
+}
+
+.tipo-badge[data-tipo="RETORNO"] {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.tipo-badge[data-tipo="EXAME"] {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+/* Form */
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+
+.field-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.field-group:last-child { margin-bottom: 0; }
+
+.field-group label {
+  font-size: 12.5px; font-weight: 600;
+  color: #475569; font-family: 'Inter', sans-serif;
+}
+
+.req { color: #ef4444; }
+
+.field-input {
+  height: 40px;
+  border: 1px solid #cbd5e1; border-radius: 8px;
+  padding: 0 12px;
+  font-size: 13.5px; font-family: 'Inter', sans-serif;
+  color: #1e293b; background: #f8fafc;
+  outline: none; transition: all 0.15s;
+  box-sizing: border-box; width: 100%;
+}
+.field-input:focus {
+  border-color: #059669; background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.08);
+}
+.field-input::placeholder { color: #94a3b8; }
+.field-input:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.field-textarea { height: auto; padding: 10px 12px; resize: vertical; line-height: 1.5; }
+
+/* Footer */
+.modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 20px;
+}
+
+.footer-right { display: flex; gap: 10px; align-items: center; }
+
+.btn-excluir-link {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: none;
+  color: #94a3b8; font-size: 13px;
+  font-family: 'Inter', sans-serif; font-weight: 500;
+  cursor: pointer; padding: 0;
+  transition: color 0.15s;
+}
+.btn-excluir-link:hover { color: #dc2626; }
 
 .btn-cancelar {
-  background-color: #f1f5f9;
-  color: #475569;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
+  background: #f1f5f9; border: none; border-radius: 8px;
+  padding: 10px 20px; font-size: 13.5px; font-weight: 600;
+  font-family: 'Inter', sans-serif; color: #475569;
+  cursor: pointer; transition: background 0.15s;
 }
+.btn-cancelar:hover { background: #e2e8f0; }
+.btn-cancelar:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.btn-cancelar:hover {
-  background-color: #e2e8f0;
+.btn-imprimir {
+  display: flex; align-items: center; gap: 7px;
+  background: #f1f5f9; border: none; border-radius: 8px;
+  padding: 10px 16px; font-size: 13.5px; font-weight: 600;
+  font-family: 'Inter', sans-serif; color: #475569;
+  cursor: pointer; transition: background 0.15s;
 }
+.btn-imprimir:hover { background: #e2e8f0; }
 
 .btn-salvar {
-  background-color: #2563eb;
-  color: #ffffff;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
+  display: flex; align-items: center; gap: 7px;
+  background: #059669; border: none; border-radius: 8px;
+  padding: 10px 24px; font-size: 13.5px; font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif; color: #ffffff;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.2);
+  transition: all 0.2s;
+}
+.btn-salvar:hover:not(:disabled) { background: #047857; }
+.btn-salvar:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Tela de exclusão */
+.tela-exclusao {
   display: flex;
+  flex-direction: column;
   align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 32px 28px;
 }
 
-.btn-salvar:hover {
-  background-color: #1d4ed8;
+.excluir-icon {
+  width: 56px; height: 56px; border-radius: 14px;
+  background: #fef2f2; color: #dc2626;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.excluir-icon--info { background: #eff6ff; color: #2563eb; }
+.excluir-icon--ok   { background: #f0fdf4; color: #059669; }
+
+.excluir-titulo {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 17px; font-weight: 700; color: #0f172a;
+  margin: 0;
 }
 
-.btn-salvar:disabled, .btn-cancelar:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.excluir-desc {
+  font-size: 13.5px; color: #64748b; line-height: 1.6;
+  margin: 0; max-width: 400px;
 }
+
+.excluir-footer {
+  display: flex; gap: 10px; justify-content: center;
+  width: 100%; padding-top: 4px;
+}
+
+.btn-excluir-confirmar {
+  background: #dc2626; border: none; border-radius: 8px;
+  padding: 10px 22px; font-size: 13.5px; font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif; color: #ffffff;
+  cursor: pointer; transition: background 0.2s;
+}
+.btn-excluir-confirmar:hover:not(:disabled) { background: #b91c1c; }
+.btn-excluir-confirmar:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>

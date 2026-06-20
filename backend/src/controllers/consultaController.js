@@ -1,210 +1,156 @@
-const { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient()
+const prisma = require('../config/database')
 
-// LISTAR
 exports.listar = async (req, res) => {
   try {
     const consultas = await prisma.consulta.findMany({
       include: {
         paciente: true,
-        profissional: {
-          include: {
-            especialidade: true
-          }
-        }
+        profissional: { include: { especialidade: true } }
       },
-      orderBy: {
-        dataInicio: 'asc'
-      }
+      orderBy: { dataInicio: 'asc' }
     })
-
     return res.json(consultas)
-
   } catch (error) {
-    return res.status(500).json({
-      error: error.message
-    })
+    return res.status(500).json({ error: error.message })
   }
 }
 
-// CRIAR
 exports.criar = async (req, res) => {
   try {
     const {
       pacienteId,
       profissionalId,
-      dataInicio,
-      dataFim,
+      dataConsulta,
+      dataInicio: dataInicioRaw,
+      dataFim: dataFimRaw,
+      status,
       observacoes,
+      valor,
       sala,
       convenio,
       procedimento
     } = req.body
 
-    // 🔥 CAPTURA O ID DO USUÁRIO LOGADO (Injetado pelo seu middleware de JWT)
-    // Se o seu middleware salvar em req.usuario, mude para req.usuario.id
-    const usuarioId = req.user?.id ? Number(req.user.id) : null
+    // Aceita tanto dataConsulta (frontend de novo.vue) quanto dataInicio/dataFim (agenda)
+    const dataInicio = dataInicioRaw ? new Date(dataInicioRaw) : dataConsulta ? new Date(dataConsulta) : null
+    const dataFim = dataFimRaw ? new Date(dataFimRaw) : dataInicio ? new Date(dataInicio.getTime() + 60 * 60 * 1000) : null
+
+    if (!pacienteId || !profissionalId || !dataInicio) {
+      return res.status(400).json({ error: 'Paciente, profissional e data são obrigatórios.' })
+    }
+
+    const usuarioId = req.usuario?.id ? Number(req.usuario.id) : null
 
     const consulta = await prisma.consulta.create({
       data: {
         pacienteId: Number(pacienteId),
         profissionalId: Number(profissionalId),
-        usuarioId: usuarioId, // ✅ Agora o ID deixa de ser null!
-        dataInicio: new Date(dataInicio),
-        dataFim: new Date(dataFim),
+        usuarioId,
+        dataInicio,
+        dataFim,
+        status: status || 'AGENDADA',
         observacoes: observacoes || null,
+        valor: valor ? Number(valor) : null,
         sala: sala || null,
-        status: "AGENDADA",
-        retorno: procedimento === "RETORNO",
-        cor: procedimento === "RETORNO" ? "#e57373" : "#4fc3f7",
-        titulo: procedimento === "RETORNO"
-          ? "Retorno"
-          : procedimento === "EXAME"
-            ? "Exame Diagnóstico"
-            : "Consulta Médica",
+        retorno: procedimento === 'RETORNO',
+        cor: procedimento === 'RETORNO' ? '#e57373' : '#4fc3f7',
+        titulo: procedimento === 'RETORNO'
+          ? 'Retorno'
+          : procedimento === 'EXAME'
+            ? 'Exame Diagnóstico'
+            : 'Consulta Médica',
         descricao: convenio ? `Convênio: ${convenio}` : null
-        
-        // Se você alterou o schema.prisma para 'atualizadoEm DateTime?',
-        // não precisa passar nada aqui. Ele nascerá como null automaticamente!
       },
       include: {
         paciente: true,
-        profissional: {
-          include: {
-            especialidade: true
-          }
-        }
+        profissional: { include: { especialidade: true } }
       }
     })
 
     return res.status(201).json(consulta)
-
   } catch (error) {
-    console.error("Erro interno no Prisma:", error.message)
-    return res.status(500).json({
-      error: "Erro ao processar requisição no banco de dados.",
-      details: error.message
-    })
+    console.error('Erro ao criar consulta:', error.message)
+    return res.status(500).json({ error: error.message })
   }
 }
 
-// ATUALIZAR (Unificado, Seguro e atualizando a data de modificação)
 exports.atualizar = async (req, res) => {
   try {
     const id = Number(req.params.id)
-    const dadosParaAtualizar = {}
+    const dados = {}
 
-    // Mapeia apenas propriedades válidas vindas do corpo da requisição
-    if (req.body.dataInicio) dadosParaAtualizar.dataInicio = new Date(req.body.dataInicio)
-    if (req.body.dataFim) dadosParaAtualizar.dataFim = new Date(req.body.dataFim)
-    if (req.body.status) dadosParaAtualizar.status = req.body.status
-    if (req.body.pacienteId) dadosParaAtualizar.pacienteId = Number(req.body.pacienteId)
-    if (req.body.profissionalId) dadosParaAtualizar.profissionalId = Number(req.body.profissionalId)
-    if (req.body.observacoes !== undefined) dadosParaAtualizar.observacoes = req.body.observacoes
-    if (req.body.sala !== undefined) dadosParaAtualizar.sala = req.body.sala
-    
+    if (req.body.dataInicio) dados.dataInicio = new Date(req.body.dataInicio)
+    if (req.body.dataFim) dados.dataFim = new Date(req.body.dataFim)
+    if (req.body.status) dados.status = req.body.status
+    if (req.body.pacienteId) dados.pacienteId = Number(req.body.pacienteId)
+    if (req.body.profissionalId) dados.profissionalId = Number(req.body.profissionalId)
+    if (req.body.observacoes !== undefined) dados.observacoes = req.body.observacoes
+    if (req.body.valor !== undefined) dados.valor = req.body.valor ? Number(req.body.valor) : null
+    if (req.body.sala !== undefined) dados.sala = req.body.sala
+
     if (req.body.procedimento) {
-      dadosParaAtualizar.retorno = req.body.procedimento === "RETORNO"
-      dadosParaAtualizar.cor = req.body.procedimento === "RETORNO" ? "#e57373" : "#4fc3f7"
-      dadosParaAtualizar.titulo = req.body.procedimento === "RETORNO"
-        ? "Retorno"
-        : req.body.procedimento === "EXAME"
-          ? "Exame Diagnóstico"
-          : "Consulta Médica"
-    }
-    
-    // Tratamento para salvar o campo 'descricao' baseado no convênio enviado pelo Front-end
-    if (req.body.convenio !== undefined) {
-      dadosParaAtualizar.descricao = req.body.convenio ? `Convênio: ${req.body.convenio}` : null
+      dados.retorno = req.body.procedimento === 'RETORNO'
+      dados.cor = req.body.procedimento === 'RETORNO' ? '#e57373' : '#4fc3f7'
+      dados.titulo = req.body.procedimento === 'RETORNO'
+        ? 'Retorno'
+        : req.body.procedimento === 'EXAME'
+          ? 'Exame Diagnóstico'
+          : 'Consulta Médica'
     }
 
-    // FORÇA O CAMPO 'atualizadoEm' A PEGAR A DATA ATUAL APENAS NO UPDATE
-    dadosParaAtualizar.atualizadoEm = new Date()
+    if (req.body.convenio !== undefined) {
+      dados.descricao = req.body.convenio ? `Convênio: ${req.body.convenio}` : null
+    }
 
     const consulta = await prisma.consulta.update({
       where: { id },
-      data: dadosParaAtualizar,
+      data: dados,
       include: {
         paciente: true,
-        profissional: { // 🌟 CORRIGIDO: de 'professional' para 'profissional' para bater com o schema.prisma
-          include: { Powdered: false, especialidade: true }
-        }
+        profissional: { include: { especialidade: true } }
       }
     })
 
     return res.json(consulta)
-
   } catch (error) {
-    return res.status(500).json({
-      error: error.message
-    })
+    return res.status(500).json({ error: error.message })
   }
 }
 
-// BUSCAR
 exports.buscar = async (req, res) => {
   try {
     const consulta = await prisma.consulta.findUnique({
-      where: {
-        id: Number(req.params.id)
-      },
+      where: { id: Number(req.params.id) },
       include: {
         paciente: true,
-        profissional: {
-          include: {
-            especialidade: true
-          }
-        }
+        profissional: { include: { especialidade: true } }
       }
     })
-
+    if (!consulta) return res.status(404).json({ error: 'Consulta não encontrada.' })
     return res.json(consulta)
-
   } catch (error) {
-    return res.status(500).json({
-      error: error.message
-    })
+    return res.status(500).json({ error: error.message })
   }
 }
 
-// EXCLUIR
 exports.excluir = async (req, res) => {
   try {
-    await prisma.consulta.delete({
-      where: {
-        id: Number(req.params.id)
-      }
-    })
-
-    return res.json({ message: 'Consulta removida' })
-
+    await prisma.consulta.delete({ where: { id: Number(req.params.id) } })
+    return res.json({ message: 'Consulta removida.' })
   } catch (error) {
-    return res.status(500).json({
-      error: error.message
-    })
+    return res.status(500).json({ error: error.message })
   }
 }
 
-// ALTERAR STATUS
 exports.alterarStatus = async (req, res) => {
   try {
     const { status } = req.body
-
     const consulta = await prisma.consulta.update({
-      where: {
-        id: Number(req.params.id)
-      },
-      data: { 
-        status,
-        atualizadoEm: new Date() // ✅ Garante a atualização aqui também!
-      }
+      where: { id: Number(req.params.id) },
+      data: { status }
     })
-
     return res.json(consulta)
-
   } catch (error) {
-    return res.status(500).json({
-      error: error.message
-    })
+    return res.status(500).json({ error: error.message })
   }
 }

@@ -2,105 +2,130 @@ const prisma = require('../config/database')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 
-const gerarAccessToken = (usuario) => {
+function gerarAccessToken(usuario) {
   return jwt.sign(
-    {
-      id: usuario.id,
-      email: usuario.email,
-      cargo: usuario.cargo
-    },
+    { id: usuario.id, email: usuario.email, cargo: usuario.cargo, nome: usuario.nome },
     process.env.JWT_SECRET,
-    {
-      expiresIn: '7d'
-    }
+    { expiresIn: '7d' }
   )
 }
 
-const gerarRefreshToken = (usuario) => {
+function gerarRefreshToken(usuario) {
   return jwt.sign(
-    {
-      id: usuario.id
-    },
+    { id: usuario.id },
     process.env.JWT_SECRET,
-    {
-      expiresIn: '7d'
-    }
+    { expiresIn: '30d' }
   )
+}
+
+function usuarioPublico(u) {
+  return { id: u.id, nome: u.nome, email: u.email, cargo: u.cargo }
 }
 
 exports.login = async (req, res) => {
   try {
     const { email, senha } = req.body
 
-    console.log('\n=============================================')
-    console.log('📥 [Backend] Nova tentativa de login recebida')
-    console.log('📧 E-mail recebido:', email)
-    console.log('🔑 Senha recebida (texto limpo):', senha)
+    if (!email || !senha) {
+      return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' })
+    }
 
-    const usuario = await prisma.usuario.findUnique({
-      where: {
-        email
-      }
-    })
+    const usuario = await prisma.usuario.findUnique({ where: { email } })
 
     if (!usuario) {
-      console.log('❌ [Backend] Usuário não encontrado no banco.')
-      return res.status(400).json({
-        error: 'Usuário não encontrado'
-      })
+      return res.status(401).json({ error: 'Credenciais inválidas.' })
     }
 
-    console.log('📦 [Backend] Usuário localizado no banco de dados!')
-    console.log('💾 Senha registrada atualmente no banco:', usuario.senha)
-
-    // 1. Verificação oficial por BCrypt
     const senhaValida = await bcrypt.compare(senha, usuario.senha)
-    console.log('📊 [Backend] O BCrypt validou a senha? ->', senhaValida)
 
-    // 2. Verificação Fallback (Texto limpo para quando você colocar "123" direto no Prisma Studio)
-    const senhaTextoLimpoValida = (senha === usuario.senha)
-    console.log('📊 [Backend] O texto limpo exato bateu? ->', senhaTextoLimpoValida)
-
-    // Se as duas formas falharem, bloqueia o acesso
-    if (!senhaValida && !senhaTextoLimpoValida) {
-      console.log('❌ [Backend] Falha total: As duas validações de senha falharam.')
-      return res.status(400).json({
-        error: 'Senha inválida'
-      })
+    if (!senhaValida) {
+      return res.status(401).json({ error: 'Credenciais inválidas.' })
     }
 
-    console.log('✅ [Backend] Senha aprovada! Gerando tokens JWT...')
-
-    const accessToken = gerarAccessToken(usuario)
+    const accessToken  = gerarAccessToken(usuario)
     const refreshToken = gerarRefreshToken(usuario)
 
     await prisma.usuario.update({
-      where: {
-        id: usuario.id
-      },
-      data: {
-        refreshToken
-      }
+      where: { id: usuario.id },
+      data:  { refreshToken }
     })
-
-    console.log('🚀 [Backend] Tokens salvos e resposta enviada com sucesso!')
-    console.log('=============================================\n')
 
     return res.json({
       accessToken,
       refreshToken,
-      usuario: {
-        id: usuario.id,
-        nome: usuario.nome,
-        email: usuario.email,
-        cargo: usuario.cargo
-      }
+      usuario: usuarioPublico(usuario)
     })
 
   } catch (error) {
-    console.log('💥 [Backend] Erro interno capturado:', error)
-    return res.status(500).json({
-      error: error.message
+    return res.status(500).json({ error: error.message })
+  }
+}
+
+exports.me = async (req, res) => {
+  try {
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: req.usuario.id },
+      select: { id: true, nome: true, email: true, cargo: true, criadoEm: true }
     })
+
+    if (!usuario) return res.status(404).json({ error: 'Usuário não encontrado.' })
+
+    return res.json(usuario)
+  } catch (error) {
+    return res.status(500).json({ error: error.message })
+  }
+}
+
+exports.refresh = async (req, res) => {
+  try {
+    const { refreshToken } = req.body
+
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'Refresh token não informado.' })
+    }
+
+    let decoded
+    try {
+      decoded = jwt.verify(refreshToken, process.env.JWT_SECRET)
+    } catch {
+      return res.status(401).json({ error: 'Refresh token inválido ou expirado.' })
+    }
+
+    const usuario = await prisma.usuario.findFirst({
+      where: { id: decoded.id, refreshToken }
+    })
+
+    if (!usuario) {
+      return res.status(401).json({ error: 'Refresh token revogado.' })
+    }
+
+    const novoAccessToken  = gerarAccessToken(usuario)
+    const novoRefreshToken = gerarRefreshToken(usuario)
+
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data:  { refreshToken: novoRefreshToken }
+    })
+
+    return res.json({
+      accessToken:  novoAccessToken,
+      refreshToken: novoRefreshToken,
+      usuario: usuarioPublico(usuario)
+    })
+
+  } catch (error) {
+    return res.status(500).json({ error: error.message })
+  }
+}
+
+exports.logout = async (req, res) => {
+  try {
+    await prisma.usuario.update({
+      where: { id: req.usuario.id },
+      data:  { refreshToken: null }
+    })
+    return res.json({ message: 'Logout realizado.' })
+  } catch (error) {
+    return res.status(500).json({ error: error.message })
   }
 }

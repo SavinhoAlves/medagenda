@@ -1,0 +1,15 @@
+-- AlterTable
+ALTER TABLE `pacientes` ADD COLUMN `aceitaSms` BOOLEAN NOT NULL DEFAULT true,
+    ADD COLUMN `ativo` BOOLEAN NOT NULL DEFAULT true,
+    ADD COLUMN `cns` VARCHAR(191) NULL,
+    ADD COLUMN `escolaridade` VARCHAR(191) NULL,
+    ADD COLUMN `estadoCivil` VARCHAR(191) NULL,
+    ADD COLUMN `etnia` VARCHAR(191) NULL,
+    ADD COLUMN `informacoesAdicionais` VARCHAR(191) NULL,
+    ADD COLUMN `nacionalidade` VARCHAR(191) NULL,
+    ADD COLUMN `naturalidade` VARCHAR(191) NULL,
+    ADD COLUMN `obito` BOOLEAN NOT NULL DEFAULT false,
+    ADD COLUMN `profissao` VARCHAR(191) NULL,
+    ADD COLUMN `religiao` VARCHAR(191) NULL,
+    MODIFY `cpf` VARCHAR(191) NULL,
+    MODIFY `telefone` VARCHAR(191) NULL;

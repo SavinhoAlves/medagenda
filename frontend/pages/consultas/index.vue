@@ -24,24 +24,25 @@ function abrirDetalhes(consulta) {
 }
 function fecharDetalhes() { exibirModalDetalhes.value = false }
 
-// --- Modal cancelar ---
-const exibirModalCancelar = ref(false)
+// --- Cancelar ---
 const cancelando = ref(false)
-const consultaParaCancelar = ref(null)
+const { confirmar } = useConfirm()
 
-function abrirModalCancelar(consulta) {
-  consultaParaCancelar.value = consulta
-  exibirModalCancelar.value = true
-}
-function fecharModalCancelar() { exibirModalCancelar.value = false }
-
-async function confirmarCancelamento() {
+async function cancelar(consulta) {
+  const ok = await confirmar({
+    titulo: 'Cancelar Consulta',
+    mensagem: 'Confirma o cancelamento da consulta de',
+    nome: consulta.paciente?.nome,
+    aviso: 'Esta ação não pode ser desfeita.',
+    textoBotao: 'Sim, cancelar',
+    variante: 'warning',
+  })
+  if (!ok) return
   try {
     cancelando.value = true
-    await api.patch(`/consultas/${consultaParaCancelar.value.id}/status`, { status: 'CANCELADA' })
-    fecharModalCancelar()
+    await api.patch(`/consultas/${consulta.id}/status`, { status: 'CANCELADA' })
     await carregar()
-  } catch (error) {
+  } catch {
     toast.erro('Erro ao cancelar consulta.')
   } finally {
     cancelando.value = false
@@ -130,7 +131,7 @@ onMounted(carregar)
                 <button
                   v-if="consulta.status !== 'CANCELADA' && consulta.status !== 'FINALIZADA'"
                   class="btn-cancelar-consulta"
-                  @click="abrirModalCancelar(consulta)"
+                  @click="cancelar(consulta)"
                 >
                   <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6m0-6 6 6"/>
@@ -192,36 +193,6 @@ onMounted(carregar)
       </div>
     </div>
 
-    <!-- Modal: Cancelar consulta -->
-    <div v-if="exibirModalCancelar" class="modal-overlay" @click.self="fecharModalCancelar">
-      <div class="modal-container modal-sm">
-        <div class="modal-header">
-          <h2>Cancelar Consulta</h2>
-          <button class="btn-fechar-modal" @click="fecharModalCancelar">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="excluir-content">
-            <div class="excluir-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-            </div>
-            <p class="excluir-texto">
-              Confirma o cancelamento da consulta de
-              <strong>{{ consultaParaCancelar?.paciente?.nome }}</strong>?
-            </p>
-            <p class="excluir-aviso">Esta ação não pode ser desfeita.</p>
-          </div>
-          <div class="modal-footer">
-            <button class="btn-cancelar-modal" @click="fecharModalCancelar" :disabled="cancelando">Voltar</button>
-            <button class="btn-confirmar-cancelar" @click="confirmarCancelamento" :disabled="cancelando">
-              {{ cancelando ? 'Cancelando...' : 'Sim, cancelar consulta' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
 
   </div>
 </template>

@@ -2,6 +2,8 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2025-07-15',
 
+  css: ['~/assets/css/dark.css'],
+
   app: {
     head: {
       titleTemplate: '%s | MedAgenda',

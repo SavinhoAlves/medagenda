@@ -15,8 +15,6 @@ export const useAuthStore = defineStore('auth', {
           senha
         })
 
-        console.log('Resposta do Login:', response.data)
-
         const {
           accessToken,
           refreshToken,
@@ -30,32 +28,37 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('refreshToken', refreshToken)
         localStorage.setItem('usuario', JSON.stringify(usuario))
 
-        // Retorna verdadeiro indicando que o login funcionou
         return true
 
       } catch (error) {
-        console.error('Erro ao efetuar login na Store:', error)
-        // Repassa o erro para o componente tratar de forma inteligente
         throw error
       }
     },
 
-    logout() {
-      this.usuario = null
-      this.token = null
-
-      localStorage.removeItem('token')
-      localStorage.removeItem('refreshToken')
-      localStorage.removeItem('usuario')
-      
-      // No logout você pode usar o window.location ou delegar ao middleware/componente
-      if (process.client) {
-        window.location.href = '/login'
+    async logout() {
+      try {
+        const token = this.token || localStorage.getItem('token')
+        if (token) {
+          await api.post('/auth/logout', {}, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        }
+      } catch {
+        // ignora erros de rede — logout local ocorre de qualquer forma
+      } finally {
+        this.usuario = null
+        this.token = null
+        localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem('usuario')
+        if (process.client) {
+          window.location.href = '/login'
+        }
       }
     },
 
     carregarUsuario() {
-      if (!process.client) return // Garante execução apenas no lado do cliente (SSR safety)
+      if (!process.client) return
 
       const token = localStorage.getItem('token')
       const usuario = localStorage.getItem('usuario')

@@ -1,197 +1,113 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-
-definePageMeta({
-  layout: 'dashboard',
-  middleware: 'auth'
-})
-
-useHead({ title: 'Agenda' })
-
-// Serviços de API
 import appointmentService from '~/services/appointmentService'
 import patientService from '~/services/patientService'
 import professionalService from '~/services/professionalService'
-
-// Componentes da Agenda
 import AgendaCalendar from '../components/agenda/AgendaCalendar.vue'
-// ✅ AJUSTADO: Nome do arquivo alinhado com o componente criado anteriormente
 import ModalAgendamento from '../components/agenda/ModalConsulta.vue'
+import { useCurrentUser } from '~/composables/useCurrentUser'
 
-// ======================
-// ESTADOS
-// ======================
+definePageMeta({ layout: 'dashboard', middleware: 'auth' })
+useHead({ title: 'Agenda' })
+
+const { isAdmin } = useCurrentUser()
+const toast = useToast()
+
 const modalAberto = ref(false)
-
 const consultas = ref([])
 const pacientes = ref([])
 const profissionais = ref([])
+const formInicial = ref({})
 
-// Form estruturado com todos os campos limpos de fábrica
-const form = ref({
-  pacienteId: '',
-  profissionalId: '',
-  dataInicio: '',
-  dataFim: '',
-  observacoes: '',
-  tipoRegistro: 'AGENDAR',
-  procedimento: 'RETORNO',
-  quantidade: 1,
-  teleconsulta: false,
-  telefoneCelular: '',
-  telefoneResidencial: '',
-  email: '',
-  convenio: '',
-  recorrencia: 'NAO_REPETE'
-})
+function mapearEvento(consulta) {
+  return {
+    id: String(consulta.id),
+    title: consulta.paciente?.nome || 'Sem nome',
+    start: consulta.dataInicio,
+    end: consulta.dataFim,
+    backgroundColor: '#059669',
+    borderColor: '#047857',
+    textColor: '#ffffff',
+    extendedProps: { consulta }
+  }
+}
 
-// ======================
-// CARREGAR DADOS DO BACKEND
-// ======================
 async function carregarDados() {
   try {
-    console.log('🔍 [Agenda.vue] Buscando dados do back-end...')
     const [consultasRes, pacientesRes, profissionaisRes] = await Promise.all([
       appointmentService.listarTodas(),
       patientService.listarTodos(),
       professionalService.listarTodos()
     ])
-
-    consultas.value = consultasRes.data.map((consulta) => {
-      const ehRetorno =
-        consulta.retorno === 1 ||
-        consulta.retorno === true
-
-      const corFundo = ehRetorno
-        ? '#f39494'
-        : '#a3d7f5'
-
-      const corTexto = ehRetorno
-        ? '#661414'
-        : '#003366'
-
-      return {
-        id: String(consulta.id),
-
-        title: consulta.paciente?.nome || 'Sem nome',
-
-        start: consulta.dataInicio,
-        end: consulta.dataFim,
-
-        backgroundColor: corFundo,
-        textColor: corTexto,
-        borderColor: corFundo,
-
-        extendedProps: {
-          consulta: {
-            ...consulta,
-
-            corFundo,
-            corTexto,
-
-            pacienteNome:
-              consulta.paciente?.nome || 'Sem nome'
-          }
-        }
-      }
-    })
-
+    consultas.value = consultasRes.data.map(mapearEvento)
     pacientes.value = pacientesRes.data
-    profissionais.value = profissionaisRes.data 
-    
-    console.log('🚀 [Agenda.vue] Tudo carregado e mapeado com sucesso!')
-
+    profissionais.value = profissionaisRes.data
   } catch (error) {
-    console.error('❌ [Agenda.vue] Erro ao carregar dados:', error)
+    console.error('[Agenda] Erro ao carregar dados:', error)
   }
 }
 
-// ======================
-// AÇÕES DO MODAL
-// ======================
 function abrirNovoAgendamento(info) {
-  const dataPadrao = new Date().toISOString().substring(0, 16)
-  
-  form.value = {
-    pacienteId: '',
-    profissionalId: '',
-    // ✅ O FullCalendar envia strings perfeitas em startStr e endStr
-    dataInicio: info?.startStr || dataPadrao, 
-    dataFim: info?.endStr || dataPadrao,
-    observacoes: '',
-    tipoRegistro: 'AGENDAR',
-    procedimento: 'RETORNO',
-    quantidade: 1,
-    teleconsulta: false,
-    telefoneCelular: '',
-    telefoneResidencial: '',
-    email: '',
-    convenio: '',
-    recorrencia: 'NAO_REPETE'
+  const agora = new Date()
+  const em30min = new Date(agora.getTime() + 30 * 60 * 1000)
+  formInicial.value = {
+    dataInicio: info?.startStr || agora.toISOString().substring(0, 16),
+    dataFim: info?.endStr || em30min.toISOString().substring(0, 16),
   }
   modalAberto.value = true
 }
 
-// ✅ ATUALIZADO: Recebe o payload emitido de dentro do modal já sanitizado
-async function salvarConsulta(dadosFormulario) {
+function abrirEdicao(consulta) {
+  formInicial.value = { ...consulta }
+  modalAberto.value = true
+}
+
+async function salvarConsulta(dados) {
   try {
     const payload = {
-      pacienteId: Number(dadosFormulario.pacienteId),
-      profissionalId: Number(dadosFormulario.profissionalId),
-      dataInicio: new Date(dadosFormulario.dataInicio),
-      dataFim: new Date(dadosFormulario.dataFim),
-      observacoes: dadosFormulario.observacoes || null,
-      tipoRegistro: dadosFormulario.tipoRegistro,
-      procedimento: dadosFormulario.procedimento,
-      quantidade: Number(dadosFormulario.quantidade),
-      teleconsulta: dadosFormulario.teleconsulta,
-      telefoneCelular: dadosFormulario.telefoneCelular,
-      telefoneResidencial: dadosFormulario.telefoneResidencial,
-      email: dadosFormulario.email,
-      convenio: dadosFormulario.convenio,
-      recorrencia: dadosFormulario.recorrencia
+      pacienteId:    Number(dados.pacienteId),
+      profissionalId: Number(dados.profissionalId),
+      dataInicio:    new Date(dados.dataInicio),
+      dataFim:       new Date(dados.dataFim),
+      observacoes:   dados.observacoes || null,
+      sala:          dados.sala || null,
     }
-
-    console.log('📤 Enviando payload para o backend:', payload)
-    await appointmentService.criar(payload)
-
+    if (dados.id) {
+      await appointmentService.atualizar(Number(dados.id), payload)
+      toast.sucesso('Consulta atualizada com sucesso!')
+    } else {
+      await appointmentService.criar(payload)
+      toast.sucesso('Consulta agendada com sucesso!')
+    }
     modalAberto.value = false
-    await carregarDados() // Atualiza os eventos na tela na hora
-
+    await carregarDados()
   } catch (error) {
-    console.error('❌ Erro ao salvar consulta no servidor:', error)
+    console.error('[Agenda] Erro ao salvar consulta:', error)
+    toast.erro('Erro ao salvar o agendamento.')
   }
 }
 
-// ======================
-// ATUALIZAR HORÁRIO (Drag-and-Drop / Resize)
-// ======================
-// ✅ Altere para esta versão na sua pages/agenda.vue:
-async function atualizarHorario(infoDoCalendario) {
+async function aoExcluido(id) {
+  consultas.value = consultas.value.filter(c => c.id !== String(id))
+  toast.sucesso('Consulta excluída.')
+}
+
+async function atualizarHorario(info) {
   try {
-    // O FullCalendar envia um objeto contendo a propriedade 'event'
-    const evento = infoDoCalendario.event; 
-
-    if (!evento || !evento.id) return;
-
+    const evento = info.event
+    if (!evento?.id) return
     await appointmentService.atualizar(Number(evento.id), {
       dataInicio: new Date(evento.start),
       dataFim: new Date(evento.end)
     })
-
     await carregarDados()
-
   } catch (error) {
-    console.error('Erro ao atualizar horário via calendário:', error)
+    console.error('[Agenda] Erro ao mover evento:', error)
+    info.revert?.()
   }
 }
 
-// ======================
-// CICLO DE VIDA
-// ======================
-onMounted(async () => {
-  await carregarDados()
-})
+onMounted(carregarDados)
 </script>
 
 <template>
@@ -199,61 +115,57 @@ onMounted(async () => {
 
     <div class="page-top">
       <div>
-        <h1>Agenda Médica</h1>
-        <p>Gerencie consultas e horários em tempo real</p>
+        <h1>Agenda</h1>
+        <p>Gerencie consultas e horários da clínica</p>
       </div>
-      
-      <button class="btn-novo-agendamento" @click="abrirNovoAgendamento(null)">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="btn-icon">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      <button class="btn-nova-consulta" @click="abrirNovoAgendamento(null)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
         Nova Consulta
       </button>
     </div>
 
-    <div class="status-legend">
-      <span class="legend-item"><span class="badge agendada"></span> Agendada</span>
-      <span class="legend-item"><span class="badge confirmada"></span> Confirmada</span>
-      <span class="legend-item"><span class="badge andamento"></span> Em Andamento</span>
-      <span class="legend-item"><span class="badge finalizada"></span> Finalizada</span>
-    </div>
-
     <AgendaCalendar
       :eventos="consultas"
+      :is-admin="isAdmin"
       @novo="abrirNovoAgendamento"
       @mover="atualizarHorario"
       @redimensionar="atualizarHorario"
+      @editar="abrirEdicao"
     />
 
     <ModalAgendamento
       :aberto="modalAberto"
-      :form="form"
+      :form="formInicial"
       :pacientes="pacientes"
       :profissionais="profissionais"
+      :is-admin="isAdmin"
       @fechar="modalAberto = false"
       @salvar="salvarConsulta"
+      @excluido="aoExcluido"
     />
 
   </div>
 </template>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Inter:wght@400;500;600&display=swap');
+
 .agenda-page {
-  padding: 24px;
+  padding: 32px 40px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  box-sizing: border-box;
+  gap: 24px;
   min-height: 100vh;
-  background-color: #f8fafc;
+  background: #f8fafc;
+  box-sizing: border-box;
 }
 
 .page-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 16px;
 }
 
 .page-top h1 {
@@ -272,60 +184,26 @@ onMounted(async () => {
   color: #64748b;
 }
 
-.btn-novo-agendamento {
+.btn-nova-consulta {
   display: flex;
   align-items: center;
   gap: 8px;
   background: #059669;
   color: #ffffff;
   border: none;
-  padding: 10px 18px;
-  border-radius: 12px;
-  font-family: 'Inter', sans-serif;
+  padding: 11px 20px;
+  border-radius: 10px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.15);
-  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.2);
+  transition: all 0.2s;
 }
 
-.btn-novo-agendamento:hover {
+.btn-nova-consulta:hover {
   background: #047857;
+  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.3);
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.25);
 }
-
-.btn-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.status-legend {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 6px 0;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  color: #475569;
-  font-weight: 500;
-}
-
-.badge {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.badge.agendada { background: #10b981; }
-.badge.confirmada { background: #3b82f6; }
-.badge.andamento { background: #f59e0b; }
-.badge.finalizada { background: #8b5cf6; }
 </style>

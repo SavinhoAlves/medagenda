@@ -61,21 +61,24 @@ async function salvarEdicao() {
   }
 }
 
-// --- Modal Excluir ---
-const exibirModalExcluir = ref(false)
+// --- Excluir ---
 const excluindo = ref(false)
-const profissionalParaExcluir = ref(null)
+const { confirmar } = useConfirm()
 
-function abrirModalExcluir(p) { profissionalParaExcluir.value = p; exibirModalExcluir.value = true }
-function fecharModalExcluir() { exibirModalExcluir.value = false }
-
-async function confirmarExclusao() {
+async function excluir(p) {
+  const ok = await confirmar({
+    titulo: 'Excluir Profissional',
+    mensagem: 'Tem certeza que deseja excluir',
+    nome: p.nome,
+    aviso: 'Esta ação não pode ser desfeita.',
+    textoBotao: 'Sim, excluir',
+  })
+  if (!ok) return
   try {
     excluindo.value = true
-    await api.delete(`/profissionais/${profissionalParaExcluir.value.id}`)
-    fecharModalExcluir()
+    await api.delete(`/profissionais/${p.id}`)
     await carregar()
-  } catch (error) {
+  } catch {
     toast.erro('Erro ao excluir profissional.')
   } finally {
     excluindo.value = false
@@ -173,7 +176,7 @@ onMounted(carregar)
                   </svg>
                   Editar
                 </button>
-                <button class="btn-excluir" @click="abrirModalExcluir(p)">
+                <button class="btn-excluir" @click="excluir(p)">
                   <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
                   </svg>
@@ -233,31 +236,6 @@ onMounted(carregar)
       </div>
     </div>
 
-    <!-- Modal: Excluir Profissional -->
-    <div v-if="exibirModalExcluir" class="modal-overlay" @click.self="fecharModalExcluir">
-      <div class="modal-container modal-sm">
-        <div class="modal-header">
-          <h2>Excluir Profissional</h2>
-          <button class="btn-fechar-modal" @click="fecharModalExcluir">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="excluir-content">
-            <div class="excluir-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-            </div>
-            <p class="excluir-texto">Tem certeza que deseja excluir o profissional <strong>{{ profissionalParaExcluir?.nome }}</strong>?</p>
-            <p class="excluir-aviso">Esta ação não pode ser desfeita.</p>
-          </div>
-          <div class="modal-footer">
-            <button class="btn-cancelar" @click="fecharModalExcluir" :disabled="excluindo">Cancelar</button>
-            <button class="btn-excluir-confirmar" @click="confirmarExclusao" :disabled="excluindo">{{ excluindo ? 'Excluindo...' : 'Sim, excluir' }}</button>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <div v-if="exibirModalNovo" class="modal-overlay" @click.self="fecharModalNovo">
       <div class="modal-container">
@@ -308,7 +286,6 @@ onMounted(carregar)
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15,23,42,.4); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 999; }
 .modal-container { background: #fff; border-radius: 16px; width: 100%; max-width: 540px; box-shadow: 0 20px 25px -5px rgba(0,0,0,.1); overflow: hidden; animation: aparecer .2s ease-out; }
 .modal-container.modal-lg { max-width: 660px; }
-.modal-container.modal-sm { max-width: 420px; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
 .modal-header h2 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
 .btn-fechar-modal { background: none; border: none; font-size: 24px; color: #94a3b8; cursor: pointer; line-height: 1; }
@@ -333,14 +310,6 @@ onMounted(carregar)
 .btn-salvar:hover { background: #047857; }
 .btn-salvar:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.excluir-content { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 8px 0 24px; gap: 12px; }
-.excluir-icon { width: 52px; height: 52px; border-radius: 14px; background: #fef2f2; color: #dc2626; display: flex; align-items: center; justify-content: center; }
-.excluir-icon svg { width: 26px; height: 26px; }
-.excluir-texto { font-size: 15px; color: #1e293b; line-height: 1.5; margin: 0; }
-.excluir-aviso { font-size: 13px; color: #94a3b8; margin: 0; }
-.btn-excluir-confirmar { background: #dc2626; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif; }
-.btn-excluir-confirmar:hover { background: #b91c1c; }
-.btn-excluir-confirmar:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .state-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 48px; text-align: center; color: #64748b; }
 .spinner { width: 28px; height: 28px; border: 3px solid rgba(5, 150, 105, 0.1); border-radius: 50%; border-top-color: #059669; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }

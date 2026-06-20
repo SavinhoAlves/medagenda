@@ -5,93 +5,103 @@ definePageMeta({
 })
 
 import { ref, onMounted, computed } from 'vue'
-import api from '../../services/api'
-import { useAuthStore } from '../../stores/auth'
-import { useRouter } from 'vue-router'
+import api from '~/services/api'
+import { useMascaras } from '~/composables/useMascaras'
 
 const route = useRoute()
 const router = useRouter()
-const authStore = useAuthStore()
+const toast = useToast()
+const { mascaraCpf, mascaraTelefone, mascaraCep, mascaraRg, mascaraCns } = useMascaras()
 
 const paciente = ref(null)
 const loading = ref(true)
+const salvando = ref(false)
 const abaAtiva = ref('dados-pessoais')
+const dataNascimentoStr = ref('')
+const excluindo = ref(false)
+const { confirmar } = useConfirm()
 
 useHead(computed(() => ({ title: paciente.value ? paciente.value.nome : 'Paciente' })))
-const toast = useToast()
 
-// --- Modal Excluir ---
-const exibirModalExcluir = ref(false)
-const excluindo = ref(false)
-function abrirModalExcluir() { exibirModalExcluir.value = true }
-function fecharModalExcluir() { exibirModalExcluir.value = false }
+function isoParaData(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const dia = String(d.getUTCDate()).padStart(2, '0')
+  const mes = String(d.getUTCMonth() + 1).padStart(2, '0')
+  return `${dia}/${mes}/${d.getUTCFullYear()}`
+}
+
+function formatarDataHora(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
+function mascaraDataInput(v) {
+  return String(v || '').replace(/\D/g, '').replace(/(\d{2})(\d)/, '$1/$2').replace(/(\d{2})(\d)/, '$1/$2').slice(0, 10)
+}
 
 async function carregarPaciente() {
+  loading.value = true
   try {
-    loading.value = true
-    
-    // 2. Recupera o token da store ou do localStorage como plano de contingência (F5)
-    const token = authStore.accessToken || authStore.token || localStorage.getItem('token')
-
-    // 3. Passa o cabeçalho Authorization com o Bearer Token
-    const response = await api.get(`/pacientes/${route.params.id}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-    paciente.value = response.data
-  } catch (error) {
-    console.error('Erro ao buscar paciente:', error)
+    const { data } = await api.get(`/pacientes/${route.params.id}`)
+    paciente.value = data
+    dataNascimentoStr.value = isoParaData(data.dataNascimento)
+  } catch {
+    toast.erro('Erro ao carregar prontuário.')
   } finally {
     loading.value = false
   }
 }
 
 async function salvarPaciente() {
+  salvando.value = true
   try {
-    const token = authStore.accessToken || authStore.token || localStorage.getItem('token')
-    
-    await api.put(`/pacientes/${route.params.id}`, paciente.value, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+    await api.put(`/pacientes/${route.params.id}`, {
+      ...paciente.value,
+      dataNascimento: dataNascimentoStr.value,
     })
     toast.sucesso('Alterações salvas com sucesso!')
   } catch (error) {
-    console.error('Erro ao salvar paciente:', error)
+    toast.erro(error.response?.data?.error || 'Erro ao salvar.')
+  } finally {
+    salvando.value = false
   }
 }
 
 async function excluirPaciente() {
+  const ok = await confirmar({
+    titulo: 'Excluir Paciente',
+    mensagem: 'Tem certeza que deseja excluir',
+    nome: paciente.value?.nome,
+    aviso: 'Todos os dados serão removidos permanentemente.',
+    textoBotao: 'Sim, excluir',
+  })
+  if (!ok) return
   try {
-    excluindo.value = true
-    const token = authStore.accessToken || authStore.token || localStorage.getItem('token')
-    await api.delete(`/pacientes/${route.params.id}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    await api.delete(`/pacientes/${route.params.id}`)
     router.push('/pacientes')
-  } catch (error) {
-    console.error('Erro ao excluir paciente:', error)
-    fecharModalExcluir()
-  } finally {
-    excluindo.value = false
+  } catch {
+    toast.erro('Erro ao excluir paciente.')
   }
 }
 
-onMounted(() => {
-  carregarPaciente()
-})
+function imprimir() { window.print() }
+
+onMounted(carregarPaciente)
 </script>
 
 <template>
   <div class="page-wrapper">
-    
+
     <div class="page-header">
       <div class="header-left">
         <NuxtLink to="/pacientes" class="back-link">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"></line>
-            <polyline points="12 19 5 12 12 5"></polyline>
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
           </svg>
         </NuxtLink>
         <h1 v-if="paciente" class="patient-title">{{ paciente.nome }}</h1>
@@ -100,280 +110,411 @@ onMounted(() => {
 
     <div v-if="loading" class="state-card">
       <div class="spinner"></div>
-      <p>Acessando ficha clínica do paciente...</p>
+      <p>Carregando prontuário...</p>
     </div>
 
     <div v-else-if="paciente" class="clinical-workspace">
-      
+
+      <!-- Sidebar de navegação -->
       <aside class="workspace-sidebar">
-        <div class="sidebar-title">Cadastros</div>
+        <div class="sidebar-title">Prontuário</div>
         <nav class="sidebar-nav">
-          <button @click="abaAtiva = 'dados-pessoais'" :class="['nav-item', { active: abaAtiva === 'dados-pessoais' }]">
-            Dados pessoais
-          </button>
-          <button @click="abaAtiva = 'complementares'" :class="['nav-item', { active: abaAtiva === 'complementares' }]">
-            Dados complementares
-          </button>
-          <button @click="abaAtiva = 'convenios'" :class="['nav-item', { active: abaAtiva === 'convenios' }]">
-            Convênios
-          </button>
-          <button @click="abaAtiva = 'historico'" :class="['nav-item', { active: abaAtiva === 'historico' }]">
-            Histórico de consultas
-          </button>
+          <button @click="abaAtiva = 'dados-pessoais'" :class="['nav-item', { active: abaAtiva === 'dados-pessoais' }]">Dados pessoais</button>
+          <button @click="abaAtiva = 'complementares'" :class="['nav-item', { active: abaAtiva === 'complementares' }]">Dados complementares</button>
+          <button @click="abaAtiva = 'convenios'" :class="['nav-item', { active: abaAtiva === 'convenios' }]">Convênios</button>
+          <button @click="abaAtiva = 'historico'" :class="['nav-item', { active: abaAtiva === 'historico' }]">Histórico de consultas</button>
         </nav>
       </aside>
 
       <div class="workspace-main-wrapper">
         <main class="workspace-content">
           <div class="form-container">
-            
+
+            <!-- ── Dados Pessoais ── -->
             <div v-if="abaAtiva === 'dados-pessoais'" class="form-section">
-              
+
               <div class="section-block">
-                <h2 class="block-title">Geral</h2>
-                
-                <div class="form-row">
-                  <div class="form-group flex-8">
-                    <label class="required">Nome</label>
-                    <input type="text" v-model="paciente.nome" class="clinical-input">
-                  </div>
-                  <div class="form-group flex-4 align-right-row">
-                    <label>Código</label>
-                    <input type="text" :value="668598 + (paciente.id || 0)" disabled class="clinical-input code-input">
-                    <span class="info-icon" title="Código interno">ℹ</span>
-                  </div>
+                <h2 class="block-title">Identificação</h2>
+
+                <div class="field-group">
+                  <label>Nome completo <span class="obrigatorio">*</span></label>
+                  <input type="text" v-model="paciente.nome" class="field-input" />
                 </div>
 
-                <div class="form-row">
-                  <div class="form-group flex-5">
-                    <label class="required">Data de nasc.</label>
-                    <input type="text" placeholder="16/03/1977" class="clinical-input small-input">
+                <div class="field-row">
+                  <div class="field-group">
+                    <label>Data de nascimento</label>
+                    <input
+                      type="text"
+                      :value="dataNascimentoStr"
+                      @input="dataNascimentoStr = mascaraDataInput($event.target.value)"
+                      placeholder="DD/MM/AAAA"
+                      maxlength="10"
+                      class="field-input field-sm"
+                    />
                   </div>
-                </div>
-
-                <div class="form-row">
-                  <div class="form-group flex-12">
-                    <label class="required">Sexo</label>
+                  <div class="field-group">
+                    <label>Sexo</label>
                     <div class="radio-group">
-                      <label class="radio-label"><input type="radio" name="sexo" checked> Masculino</label>
-                      <label class="radio-label"><input type="radio" name="sexo"> Feminino</label>
+                      <label class="radio-label">
+                        <input type="radio" v-model="paciente.sexo" value="MASCULINO" /> Masculino
+                      </label>
+                      <label class="radio-label">
+                        <input type="radio" v-model="paciente.sexo" value="FEMININO" /> Feminino
+                      </label>
                     </div>
                   </div>
                 </div>
 
-                <div class="form-row option-row">
-                  <div class="form-group flex-12 check-group">
-                    <input type="checkbox" id="nome-civil">
-                    <label for="nome-civil">Nome civil <span class="info-icon">ℹ</span></label>
-                  </div>
-                </div>
-
-                <div class="form-row option-row">
-                  <div class="form-group flex-12 check-group">
-                    <input type="checkbox" id="genero-opc">
-                    <label for="genero-opc">Gênero (opcional) para o paciente <span class="info-icon">ℹ</span></label>
-                  </div>
-                </div>
-
-                <div class="form-row">
-                  <div class="form-group flex-7">
-                    <label>E-mail</label>
-                    <input type="email" v-model="paciente.email" class="clinical-input">
-                  </div>
-                </div>
-
-                <div class="form-row">
-                  <div class="form-group flex-6">
+                <div class="field-row">
+                  <div class="field-group">
                     <label>CPF</label>
-                    <input type="text" v-model="paciente.cpf" placeholder="___.___.___-__" class="clinical-input medium-input">
+                    <input
+                      type="text"
+                      :value="paciente.cpf"
+                      @input="paciente.cpf = mascaraCpf($event.target.value)"
+                      placeholder="000.000.000-00"
+                      maxlength="14"
+                      class="field-input field-md"
+                    />
                   </div>
-                  <div class="form-group flex-6 align-right-row">
+                  <div class="field-group">
                     <label>RG</label>
-                    <input type="text" class="clinical-input medium-input">
+                    <input
+                      type="text"
+                      :value="paciente.rg"
+                      @input="paciente.rg = mascaraRg($event.target.value)"
+                      placeholder="00.000.000-0"
+                      maxlength="12"
+                      class="field-input field-md"
+                    />
                   </div>
                 </div>
 
-                <div class="form-row">
-                  <div class="form-group flex-7">
-                    <label>Como conheceu?</label>
-                    <select class="clinical-select">
-                      <option value="">Selecione...</option>
-                    </select>
+                <div class="field-row">
+                  <div class="field-group">
+                    <label>CNS</label>
+                    <input
+                      type="text"
+                      :value="paciente.cns"
+                      @input="paciente.cns = mascaraCns($event.target.value)"
+                      placeholder="000 0000 0000 0000"
+                      maxlength="18"
+                      class="field-input field-md"
+                    />
+                  </div>
+                  <div class="field-group flex-grow">
+                    <label>E-mail</label>
+                    <input type="email" v-model="paciente.email" class="field-input" />
                   </div>
                 </div>
-
               </div>
 
               <div class="section-block">
                 <h2 class="block-title">Telefones</h2>
-                
-                <div class="form-row">
-                  <div class="form-group flex-5">
-                    <label class="required">Celular</label>
-                    <input type="text" v-model="paciente.telefone" placeholder="(22) 98133-0080" class="clinical-input medium-input">
-                  </div>
-                  <div class="form-group flex-7 align-right-row">
-                    <label class="required">Casa</label>
-                    <input type="text" placeholder="(__) ____-____" class="clinical-input medium-input">
-                  </div>
-                </div>
 
-                <div class="form-row">
-                  <div class="form-group flex-5">
+                <div class="field-row">
+                  <div class="field-group">
+                    <label>Celular</label>
+                    <input
+                      type="text"
+                      :value="paciente.telefone"
+                      @input="paciente.telefone = mascaraTelefone($event.target.value)"
+                      placeholder="(00) 00000-0000"
+                      maxlength="15"
+                      class="field-input field-md"
+                    />
+                  </div>
+                  <div class="field-group">
+                    <label>Residencial</label>
+                    <input
+                      type="text"
+                      :value="paciente.telefoneResidencial"
+                      @input="paciente.telefoneResidencial = mascaraTelefone($event.target.value)"
+                      placeholder="(00) 0000-0000"
+                      maxlength="14"
+                      class="field-input field-md"
+                    />
+                  </div>
+                  <div class="field-group">
                     <label>Trabalho</label>
-                    <input type="text" placeholder="(__) ____-____" class="clinical-input medium-input">
+                    <input
+                      type="text"
+                      :value="paciente.telefoneTrabalho"
+                      @input="paciente.telefoneTrabalho = mascaraTelefone($event.target.value)"
+                      placeholder="(00) 0000-0000"
+                      maxlength="14"
+                      class="field-input field-md"
+                    />
                   </div>
                 </div>
 
-              </div>
-
-              <div class="section-block">
-                <h2 class="block-title">Lembrete de Agendamento</h2>
-                
-                <div class="form-row option-row switch-row">
+                <div class="sms-row">
                   <label class="switch">
-                    <input type="checkbox" checked>
+                    <input type="checkbox" v-model="paciente.aceitaSms" />
                     <span class="slider round"></span>
                   </label>
-                  <span class="switch-label">Paciente aceita receber lembrete de agendamento por SMS</span>
-                </div>
-                
-                <div class="form-row option-row success-row">
-                  <span class="check-mark">✓</span>
-                  <span class="success-label">Seus pacientes podem responder o SMS</span>
+                  <span class="sms-label">Paciente aceita receber lembretes por SMS</span>
                 </div>
               </div>
 
               <div class="section-block">
                 <h2 class="block-title">Endereço</h2>
-                
-                <div class="form-row">
-                  <div class="form-group flex-5">
+
+                <div class="field-row">
+                  <div class="field-group">
                     <label>CEP</label>
-                    <input type="text" placeholder="_____-___" class="clinical-input small-input">
+                    <input
+                      type="text"
+                      :value="paciente.cep"
+                      @input="paciente.cep = mascaraCep($event.target.value)"
+                      placeholder="00000-000"
+                      maxlength="9"
+                      class="field-input field-sm"
+                    />
                   </div>
-                </div>
-
-                <div class="form-row">
-                  <div class="form-group flex-9">
-                    <label>Endereço</label>
-                    <input type="text" class="clinical-input">
-                  </div>
-                  <div class="form-group flex-3 align-right-row">
-                    <label>Número</label>
-                    <input type="text" class="clinical-input code-input">
-                  </div>
-                </div>
-
-                <div class="form-row">
-                  <div class="form-group flex-6">
-                    <label>Complemento</label>
-                    <input type="text" class="clinical-input">
-                  </div>
-                  <div class="form-group flex-6 align-right-row">
-                    <label>Bairro</label>
-                    <input type="text" class="clinical-input">
-                  </div>
-                </div>
-
-                <div class="form-row">
-                  <div class="form-group flex-6">
-                    <label>Cidade</label>
-                    <input type="text" class="clinical-input">
-                  </div>
-                  <div class="form-group flex-6 align-right-row">
-                    <label>Estado</label>
-                    <select class="clinical-select state-select">
-                      <option value=""></option>
-                    </select>
-                  </div>
-                </div>
-
-                <div class="form-row">
-                  <div class="form-group flex-6">
+                  <div class="field-group">
                     <label>País</label>
-                    <select class="clinical-select state-select">
+                    <select v-model="paciente.pais" class="field-input field-sm">
                       <option value="Brasil">Brasil</option>
                     </select>
                   </div>
                 </div>
 
+                <div class="field-row">
+                  <div class="field-group flex-grow">
+                    <label>Endereço</label>
+                    <input type="text" v-model="paciente.endereco" placeholder="Rua, Avenida..." class="field-input" />
+                  </div>
+                  <div class="field-group">
+                    <label>Número</label>
+                    <input type="text" v-model="paciente.numero" placeholder="Nº" class="field-input field-xs" />
+                  </div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field-group">
+                    <label>Complemento</label>
+                    <input type="text" v-model="paciente.complemento" placeholder="Apto, sala..." class="field-input" />
+                  </div>
+                  <div class="field-group">
+                    <label>Bairro</label>
+                    <input type="text" v-model="paciente.bairro" class="field-input" />
+                  </div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field-group">
+                    <label>Cidade</label>
+                    <input type="text" v-model="paciente.cidade" class="field-input" />
+                  </div>
+                  <div class="field-group">
+                    <label>Estado</label>
+                    <select v-model="paciente.estado" class="field-input field-sm">
+                      <option value="">Selecione...</option>
+                      <option value="AC">Acre</option>
+                      <option value="AL">Alagoas</option>
+                      <option value="AP">Amapá</option>
+                      <option value="AM">Amazonas</option>
+                      <option value="BA">Bahia</option>
+                      <option value="CE">Ceará</option>
+                      <option value="DF">Distrito Federal</option>
+                      <option value="ES">Espírito Santo</option>
+                      <option value="GO">Goiás</option>
+                      <option value="MA">Maranhão</option>
+                      <option value="MT">Mato Grosso</option>
+                      <option value="MS">Mato Grosso do Sul</option>
+                      <option value="MG">Minas Gerais</option>
+                      <option value="PA">Pará</option>
+                      <option value="PB">Paraíba</option>
+                      <option value="PR">Paraná</option>
+                      <option value="PE">Pernambuco</option>
+                      <option value="PI">Piauí</option>
+                      <option value="RJ">Rio de Janeiro</option>
+                      <option value="RN">Rio Grande do Norte</option>
+                      <option value="RS">Rio Grande do Sul</option>
+                      <option value="RO">Rondônia</option>
+                      <option value="RR">Roraima</option>
+                      <option value="SC">Santa Catarina</option>
+                      <option value="SP">São Paulo</option>
+                      <option value="SE">Sergipe</option>
+                      <option value="TO">Tocantins</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Dados Complementares ── -->
+            <div v-if="abaAtiva === 'complementares'" class="form-section">
+
+              <div class="section-block">
+                <h2 class="block-title">Informações Pessoais</h2>
+
+                <div class="field-row">
+                  <div class="field-group">
+                    <label>Naturalidade</label>
+                    <input type="text" v-model="paciente.naturalidade" class="field-input" />
+                  </div>
+                  <div class="field-group">
+                    <label>Nacionalidade</label>
+                    <select v-model="paciente.nacionalidade" class="field-input">
+                      <option value="Brasileiro">Brasileiro</option>
+                      <option value="Estrangeiro">Estrangeiro</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field-group">
+                    <label>Estado Civil</label>
+                    <select v-model="paciente.estadoCivil" class="field-input">
+                      <option value="">Selecione...</option>
+                      <option value="Solteiro">Solteiro(a)</option>
+                      <option value="Casado">Casado(a)</option>
+                      <option value="Divorciado">Divorciado(a)</option>
+                      <option value="Viúvo">Viúvo(a)</option>
+                      <option value="União Estável">União Estável</option>
+                    </select>
+                  </div>
+                  <div class="field-group">
+                    <label>Etnia</label>
+                    <select v-model="paciente.etnia" class="field-input">
+                      <option value="">Selecione...</option>
+                      <option value="Branca">Branca</option>
+                      <option value="Preta">Preta</option>
+                      <option value="Parda">Parda</option>
+                      <option value="Amarela">Amarela</option>
+                      <option value="Indígena">Indígena</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field-group">
+                    <label>Escolaridade</label>
+                    <select v-model="paciente.escolaridade" class="field-input">
+                      <option value="">Selecione...</option>
+                      <option value="Fundamental Incompleto">Fundamental Incompleto</option>
+                      <option value="Fundamental Completo">Fundamental Completo</option>
+                      <option value="Médio Incompleto">Médio Incompleto</option>
+                      <option value="Médio Completo">Médio Completo</option>
+                      <option value="Superior Incompleto">Superior Incompleto</option>
+                      <option value="Superior Completo">Superior Completo</option>
+                      <option value="Pós-graduação">Pós-graduação</option>
+                    </select>
+                  </div>
+                  <div class="field-group">
+                    <label>Profissão</label>
+                    <input type="text" v-model="paciente.profissao" class="field-input" />
+                  </div>
+                </div>
+
+                <div class="field-row">
+                  <div class="field-group flex-grow">
+                    <label>Religião</label>
+                    <input type="text" v-model="paciente.religiao" class="field-input" />
+                  </div>
+                </div>
               </div>
 
+              <div class="section-block">
+                <h2 class="block-title">Informações Adicionais</h2>
+                <div class="field-group">
+                  <label>Observações</label>
+                  <textarea v-model="paciente.informacoesAdicionais" rows="5" placeholder="Observações visíveis para toda a equipe..." class="field-input field-textarea"></textarea>
+                </div>
+              </div>
+
+              <div class="section-block">
+                <h2 class="block-title">Status</h2>
+                <div class="field-row">
+                  <div class="field-group">
+                    <label>Situação</label>
+                    <select v-model="paciente.ativo" class="field-input field-sm">
+                      <option :value="true">Ativo</option>
+                      <option :value="false">Inativo</option>
+                    </select>
+                  </div>
+                  <div class="field-group">
+                    <label class="switch-inline">
+                      <span>Óbito</span>
+                      <label class="switch">
+                        <input type="checkbox" v-model="paciente.obito" />
+                        <span class="slider round"></span>
+                      </label>
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
+
+            <!-- ── Convênios ── -->
+            <div v-if="abaAtiva === 'convenios'" class="form-section">
+              <div class="empty-section">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
+                  <rect x="2" y="5" width="20" height="14" rx="3"/>
+                  <path d="M2 10h20"/>
+                </svg>
+                <p>Nenhum convênio vinculado a este paciente.</p>
+              </div>
+            </div>
+
+            <!-- ── Histórico ── -->
+            <div v-if="abaAtiva === 'historico'" class="form-section">
+              <div class="empty-section">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/>
+                  <path d="M16 2v4M8 2v4M3 10h18"/>
+                </svg>
+                <p>Nenhuma consulta registrada.</p>
+              </div>
+            </div>
+
           </div>
 
+          <!-- Coluna direita: avatar + ações rápidas -->
           <div class="photo-sidebar">
-            <div class="avatar-big-wrap">
-              <div class="avatar-placeholder">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <circle cx="12" cy="7" r="4" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
+            <div class="avatar-block">
+              <div class="avatar-circle">
+                {{ paciente.nome?.charAt(0).toUpperCase() }}
               </div>
-              <div class="photo-info">
-                <h3>Imagem de perfil</h3>
-                <p>Sua imagem deve ter no máximo 250x250px e 1MB.</p>
-                <button class="btn-outline-action">EDITAR FOTO</button>
+              <div class="avatar-info">
+                <p class="avatar-name">{{ paciente.nome }}</p>
+                <p class="avatar-id">ID #{{ paciente.id }}</p>
               </div>
             </div>
 
-            <button class="btn-print" @click="window.print()">
+            <button class="btn-print" @click="imprimir">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                <rect x="6" y="14" width="12" height="8"></rect>
+                <polyline points="6 9 6 2 18 2 18 9"/>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                <rect x="6" y="14" width="12" height="8"/>
               </svg>
-              IMPRIMIR
+              Imprimir ficha
             </button>
-            <span class="creation-stamp">Paciente cadastrado em 02/09/2024 às 16:41</span>
+
+            <span v-if="paciente.criadoEm" class="creation-stamp">
+              Cadastrado em {{ formatarDataHora(paciente.criadoEm) }}
+            </span>
           </div>
         </main>
 
         <footer class="workspace-footer">
-          <button @click="abrirModalExcluir" class="btn-delete">
+          <button @click="excluirPaciente" class="btn-delete">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              <line x1="10" y1="11" x2="10" y2="17"></line>
-              <line x1="14" y1="11" x2="14" y2="17"></line>
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
             </svg>
-            EXCLUIR
+            Excluir paciente
           </button>
-          <div class="footer-save-actions">
-            <button @click="salvarPaciente" class="btn-secondary-action">SALVAR E ADICIONAR OUTRO</button>
-            <button @click="salvarPaciente" class="btn-secondary-action">SALVAR E CONTINUAR EDITANDO</button>
-            <button @click="salvarPaciente" class="btn-primary-save">SALVAR</button>
-          </div>
-        </footer>
-      </div>
-
-    </div>
-
-    <!-- Modal: Confirmar Exclusão -->
-    <div v-if="exibirModalExcluir" class="modal-overlay" @click.self="fecharModalExcluir">
-      <div class="modal-confirm">
-        <div class="modal-confirm-header">
-          <h2>Excluir Paciente</h2>
-          <button class="btn-fechar" @click="fecharModalExcluir">&times;</button>
-        </div>
-        <div class="modal-confirm-body">
-          <div class="excluir-content">
-            <div class="excluir-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="26" height="26">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-            </div>
-            <p>Tem certeza que deseja excluir <strong>{{ paciente?.nome }}</strong>? Todos os dados serão removidos permanentemente.</p>
-          </div>
-          <div class="modal-confirm-footer">
-            <button class="btn-cancelar-modal" @click="fecharModalExcluir" :disabled="excluindo">Cancelar</button>
-            <button class="btn-excluir-modal" @click="excluirPaciente" :disabled="excluindo">
-              {{ excluindo ? 'Excluindo...' : 'Sim, excluir' }}
+          <div class="footer-actions">
+            <NuxtLink to="/pacientes" class="btn-cancelar">Cancelar</NuxtLink>
+            <button @click="salvarPaciente" class="btn-salvar" :disabled="salvando">
+              {{ salvando ? 'Salvando...' : 'Salvar alterações' }}
             </button>
           </div>
-        </div>
+        </footer>
       </div>
     </div>
 
@@ -381,17 +522,19 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Layout Geral */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=Inter:wght@400;500;600&display=swap');
+
 .page-wrapper {
-  background-color: #ffffff;
+  background: #f8fafc;
   min-height: 100vh;
   font-family: 'Inter', sans-serif;
   display: flex;
   flex-direction: column;
 }
 
+/* Header */
 .page-header {
-  padding: 16px 24px;
+  padding: 14px 24px;
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
 }
@@ -403,37 +546,43 @@ onMounted(() => {
 }
 
 .back-link {
-  color: #0066cc;
+  color: #059669;
   display: flex;
   align-items: center;
+  transition: color 0.15s;
 }
+.back-link:hover { color: #047857; }
 
 .patient-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #334155;
-  text-transform: uppercase;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
   margin: 0;
 }
 
-/* Divisão do Workspace */
+/* Workspace */
 .clinical-workspace {
   display: flex;
   flex: 1;
 }
 
+/* Sidebar */
 .workspace-sidebar {
-  width: 210px;
-  background: #fdfdfd;
+  width: 200px;
+  background: #ffffff;
   border-right: 1px solid #e2e8f0;
-  padding-top: 16px;
+  padding-top: 20px;
+  flex-shrink: 0;
 }
 
 .sidebar-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #334155;
-  padding: 0 18px 8px 18px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #94a3b8;
+  padding: 0 16px 10px;
 }
 
 .sidebar-nav {
@@ -444,267 +593,287 @@ onMounted(() => {
 .nav-item {
   background: none;
   border: none;
+  border-left: 3px solid transparent;
   text-align: left;
-  padding: 10px 18px;
-  font-size: 12px;
-  color: #0066cc;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  color: #64748b;
   cursor: pointer;
+  transition: all 0.15s;
 }
+.nav-item:hover { background: #f8fafc; color: #0f172a; }
 .nav-item.active {
-  background-color: #eaeef3;
-  color: #334155;
+  border-left-color: #059669;
+  background: #f0fdf4;
+  color: #059669;
+  font-weight: 600;
 }
 
-/* Área de Formulário Principal */
+/* Main area */
 .workspace-main-wrapper {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-width: 0;
 }
 
 .workspace-content {
   display: flex;
-  padding: 24px 32px;
+  padding: 28px 32px;
   gap: 32px;
   flex: 1;
+  align-items: flex-start;
 }
 
 .form-container {
   flex: 1;
-  max-width: 900px;
+  min-width: 0;
 }
 
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Section blocks */
 .section-block {
-  margin-bottom: 32px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
 }
 
 .block-title {
-  font-size: 11px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  color: #0066cc;
-  margin-bottom: 24px;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
+  color: #059669;
+  margin: 0 0 16px 0;
 }
 
-/* Grid de Linhas Alinhadas Horizontalmente */
-.form-row {
+/* Field layout */
+.field-row {
   display: flex;
-  gap: 24px;
-  margin-bottom: 12px;
-  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
 }
 
-.flex-3  { flex: 3; }
-.flex-4  { flex: 4; }
-.flex-5  { flex: 5; }
-.flex-6  { flex: 6; }
-.flex-7  { flex: 7; }
-.flex-8  { flex: 8; }
-.flex-9  { flex: 9; }
-.flex-12 { flex: 12; }
-
-.form-group {
+.field-group {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.form-group label {
-  width: 130px;
+.field-group.flex-grow { flex: 1; }
+
+.field-group label {
   font-size: 12px;
-  color: #334155;
-  text-align: right;
-  padding-right: 14px;
-  flex-shrink: 0;
+  font-weight: 600;
+  color: #475569;
 }
 
-.form-group label.required::after {
-  content: "*";
-  color: #cc0000;
-  margin-left: 2px;
-}
+.obrigatorio { color: #ef4444; }
 
-.align-right-row {
-  justify-content: flex-end;
-}
-.align-right-row label {
-  width: auto;
-}
-
-/* Inputs Padronizados iClinic */
-.clinical-input, .clinical-select {
-  height: 30px;
-  border: 1px solid #cccccc;
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: #334155;
-  width: 100%;
+/* Inputs */
+.field-input {
+  height: 38px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 13.5px;
+  font-family: 'Inter', sans-serif;
+  color: #1e293b;
+  background: #f8fafc;
+  outline: none;
+  transition: all 0.15s;
   box-sizing: border-box;
-  background-color: #ffffff;
+  width: 100%;
+}
+.field-input:focus {
+  border-color: #059669;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(5,150,105,0.08);
 }
 
-.small-input { max-width: 160px; }
-.medium-input { max-width: 200px; }
-.code-input { max-width: 70px; text-align: center; }
-.state-select { max-width: 80px; }
+.field-input.field-xs { width: 72px; }
+.field-input.field-sm { width: 140px; }
+.field-input.field-md { width: 185px; }
 
-.info-icon {
-  margin-left: 6px;
-  font-size: 11px;
-  color: #0066cc;
-  background: #f1f5f9;
-  border-radius: 50%;
-  width: 15px;
-  height: 15px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: help;
+.field-input.field-textarea {
+  height: auto;
+  padding: 10px;
+  resize: vertical;
+  line-height: 1.5;
 }
 
-/* Componentes de Seleção Opcionais */
+/* Radio */
 .radio-group {
   display: flex;
-  gap: 12px;
+  gap: 16px;
+  align-items: center;
+  height: 38px;
 }
 
 .radio-label {
-  font-size: 12px;
+  font-size: 13px;
   color: #334155;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   cursor: pointer;
+  font-weight: 500;
 }
 
-.option-row {
-  padding-left: 130px;
-}
+input[type="radio"] { accent-color: #059669; }
 
-.check-group {
+/* SMS switch */
+.sms-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-.check-group input { margin: 0; }
-.check-group label {
-  width: auto;
-  text-align: left;
-  padding-right: 0;
-  display: flex;
-  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
 }
 
-/* Módulo de SMS e Toggle Slider */
-.switch-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 6px;
-}
-
-.switch-label {
-  font-size: 12px;
-  color: #64748b;
-}
-
-.success-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #16a34a;
-  font-size: 12px;
+.sms-label {
+  font-size: 13px;
+  color: #475569;
 }
 
 .switch {
   position: relative;
   display: inline-block;
-  width: 34px;
-  height: 18px;
+  width: 36px;
+  height: 20px;
   flex-shrink: 0;
 }
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider {
-  position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-  background-color: #cbd5e1; transition: .2s;
+  position: absolute; cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #cbd5e1; transition: .2s; border-radius: 20px;
 }
 .slider:before {
-  position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px;
-  background-color: white; transition: .2s;
+  position: absolute; content: "";
+  height: 14px; width: 14px; left: 3px; bottom: 3px;
+  background: white; transition: .2s; border-radius: 50%;
 }
-input:checked + .slider { background-color: #ea580c; }
+input:checked + .slider { background: #059669; }
 input:checked + .slider:before { transform: translateX(16px); }
-.slider.round { border-radius: 18px; }
-.slider.round:before { border-radius: 50%; }
 
-/* Foto / Impressão Direita */
+.switch-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+/* Photo sidebar */
 .photo-sidebar {
-  width: 240px;
+  width: 200px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
-.avatar-big-wrap {
+.avatar-block {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  width: 100%;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 10px;
+  text-align: center;
 }
 
-.avatar-placeholder {
-  width: 48px;
-  height: 48px;
+.avatar-circle {
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  background-color: #e2e8f0;
-  color: #94a3b8;
+  background: rgba(5,150,105,0.1);
+  color: #059669;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
 }
-.avatar-placeholder svg { width: 28px; height: 28px; }
 
-.photo-info h3 { font-size: 11.5px; font-weight: 600; color: #475569; margin: 0 0 2px 0; }
-.photo-info p { font-size: 10px; color: #94a3b8; margin: 0 0 6px 0; line-height: 1.3; }
+.avatar-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+  word-break: break-word;
+}
 
-.btn-outline-action {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  padding: 4px 8px;
-  font-size: 10.5px;
-  border-radius: 4px;
-  color: #0066cc;
-  cursor: pointer;
+.avatar-id {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0;
 }
 
 .btn-print {
   width: 100%;
-  background-color: #0066cc;
-  color: #ffffff;
-  border: none;
-  border-radius: 4px;
-  padding: 8px;
-  font-size: 11.5px;
-  font-weight: 700;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  color: #475569;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  transition: all 0.15s;
 }
+.btn-print:hover { background: #e2e8f0; color: #1e293b; }
 
 .creation-stamp {
-  font-size: 10.5px;
-  color: #64748b;
+  font-size: 11px;
+  color: #94a3b8;
   text-align: center;
+  line-height: 1.4;
 }
 
-/* Rodapé de Ações Inferior Fixo */
+/* Empty state */
+.empty-section {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #94a3b8;
+  text-align: center;
+}
+.empty-section p { margin: 0; font-size: 14px; }
+
+/* Footer */
 .workspace-footer {
-  background: #f8fafc;
+  background: #ffffff;
   border-top: 1px solid #e2e8f0;
-  padding: 12px 24px;
+  padding: 14px 32px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -713,63 +882,74 @@ input:checked + .slider:before { transform: translateX(16px); }
 .btn-delete {
   background: none;
   border: none;
-  color: #64748b;
-  font-size: 11px;
+  color: #94a3b8;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   cursor: pointer;
-  text-transform: uppercase;
+  transition: color 0.15s;
 }
 .btn-delete:hover { color: #dc2626; }
 
-.footer-save-actions {
+.footer-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  align-items: center;
 }
 
-.btn-secondary-action {
-  background: #ffffff;
-  border: 1px solid #cccccc;
-  border-radius: 4px;
-  padding: 6px 12px;
-  font-size: 11px;
-  font-weight: 500;
-  color: #334155;
-  cursor: pointer;
-}
-
-.btn-primary-save {
-  background: #0066cc;
+.btn-cancelar {
+  background: #f1f5f9;
   border: none;
-  border-radius: 4px;
-  padding: 6px 20px;
-  font-size: 11px;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 13.5px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  color: #475569;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+.btn-cancelar:hover { background: #e2e8f0; }
+
+.btn-salvar {
+  background: #059669;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 13.5px;
   font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   color: #ffffff;
   cursor: pointer;
+  box-shadow: 0 4px 12px rgba(5,150,105,0.2);
+  transition: all 0.2s;
 }
+.btn-salvar:hover:not(:disabled) { background: #047857; }
+.btn-salvar:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* Spinner */
-.state-card { padding: 60px; text-align: center; color: #64748b; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.spinner { width: 28px; height: 28px; border: 3px solid rgba(0,102,204,0.1); border-radius: 50%; border-top-color: #0066cc; animation: spin 0.8s linear infinite; }
+/* Loading */
+.state-card {
+  padding: 80px;
+  text-align: center;
+  color: #64748b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.spinner {
+  width: 28px; height: 28px;
+  border: 3px solid rgba(5,150,105,0.1);
+  border-radius: 50%;
+  border-top-color: #059669;
+  animation: spin 0.8s linear infinite;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Modal de confirmação */
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15,23,42,.4); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-.modal-confirm { background: #fff; border-radius: 16px; width: 100%; max-width: 420px; box-shadow: 0 20px 25px -5px rgba(0,0,0,.1); overflow: hidden; animation: aparecer .2s ease-out; }
-.modal-confirm-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
-.modal-confirm-header h2 { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
-.btn-fechar { background: none; border: none; font-size: 24px; color: #94a3b8; cursor: pointer; }
-.modal-confirm-body { padding: 24px; }
-.excluir-content { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding-bottom: 20px; }
-.excluir-icon { width: 52px; height: 52px; border-radius: 14px; background: #fef2f2; color: #dc2626; display: flex; align-items: center; justify-content: center; }
-.excluir-content p { font-size: 14px; color: #475569; line-height: 1.6; margin: 0; }
-.modal-confirm-footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
-.btn-cancelar-modal { background: #f1f5f9; color: #475569; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
-.btn-excluir-modal { background: #dc2626; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
-.btn-excluir-modal:hover { background: #b91c1c; }
-.btn-excluir-modal:disabled, .btn-cancelar-modal:disabled { opacity: 0.6; cursor: not-allowed; }
-@keyframes aparecer { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
 </style>

@@ -45,24 +45,24 @@ async function salvarEdicao() {
   }
 }
 
-// --- Modal Excluir ---
-const exibirModalExcluir = ref(false)
+// --- Excluir ---
 const excluindo = ref(false)
-const especialidadeParaExcluir = ref(null)
+const { confirmar } = useConfirm()
 
-function abrirModalExcluir(esp) {
-  especialidadeParaExcluir.value = esp
-  exibirModalExcluir.value = true
-}
-function fecharModalExcluir() { exibirModalExcluir.value = false }
-
-async function confirmarExclusao() {
+async function excluir(esp) {
+  const ok = await confirmar({
+    titulo: 'Excluir Especialidade',
+    mensagem: 'Tem certeza que deseja excluir',
+    nome: esp.nome,
+    aviso: 'Esta ação não pode ser desfeita.',
+    textoBotao: 'Sim, excluir',
+  })
+  if (!ok) return
   try {
     excluindo.value = true
-    await api.delete(`/especialidades/${especialidadeParaExcluir.value.id}`)
-    fecharModalExcluir()
+    await api.delete(`/especialidades/${esp.id}`)
     await carregar()
-  } catch (error) {
+  } catch {
     toast.erro('Erro ao remover especialidade.')
   } finally {
     excluindo.value = false
@@ -141,7 +141,7 @@ useHead({ title: 'Especialidades' })
                   </svg>
                   Editar
                 </button>
-                <button class="btn-excluir" @click="abrirModalExcluir(esp)">
+                <button class="btn-excluir" @click="excluir(esp)">
                   <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="3 6 5 6 21 6"/>
                     <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -200,36 +200,6 @@ useHead({ title: 'Especialidades' })
       </div>
     </div>
 
-    <!-- Modal: Confirmar Exclusão -->
-    <div v-if="exibirModalExcluir" class="modal-overlay" @click.self="fecharModalExcluir">
-      <div class="modal-container modal-sm">
-        <div class="modal-header">
-          <h2>Excluir Especialidade</h2>
-          <button class="btn-fechar-modal" @click="fecharModalExcluir">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="excluir-content">
-            <div class="excluir-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-            </div>
-            <p class="excluir-texto">
-              Tem certeza que deseja excluir a especialidade
-              <strong>{{ especialidadeParaExcluir?.nome }}</strong>?
-            </p>
-            <p class="excluir-aviso">Esta ação não pode ser desfeita.</p>
-          </div>
-          <div class="modal-footer">
-            <button class="btn-cancelar" @click="fecharModalExcluir" :disabled="excluindo">Cancelar</button>
-            <button class="btn-excluir-confirmar" @click="confirmarExclusao" :disabled="excluindo">
-              {{ excluindo ? 'Excluindo...' : 'Sim, excluir' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
 
   </div>
 </template>

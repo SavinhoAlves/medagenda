@@ -12,11 +12,13 @@ model Usuario {
   nome         String
   email        String   @unique
   senha        String
-  cargo        String   @default("admin")
+  cargo        String   @default("operador")
   refreshToken String?
   criadoEm     DateTime @default(now())
 
-  consultas Consulta[]
+  consultas             Consulta[]
+  solicitacoesExclusao  SolicitacaoExclusao[]
+  notificacoes          Notificacao[]
 
   @@map("usuarios")
 }
@@ -26,29 +28,42 @@ model Paciente {
 
   nome String
 
-  cpf String @unique
-  rg String?
+  cpf String? @unique
+  rg  String?
+  cns String?
 
   email String?
 
-  telefone String
+  telefone            String?
   telefoneResidencial String?
-  telefoneTrabalho String?
+  telefoneTrabalho    String?
 
   dataNascimento DateTime?
+  sexo           Sexo?
 
-  sexo Sexo?
-
-  cep String?
-  endereco String?
-  numero String?
+  cep         String?
+  endereco    String?
+  numero      String?
   complemento String?
-  bairro String?
-  cidade String?
-  estado String?
-  pais String?
+  bairro      String?
+  cidade      String?
+  estado      String?
+  pais        String?
 
-  observacoes String?
+  naturalidade  String?
+  nacionalidade String?
+  etnia         String?
+  religiao      String?
+  estadoCivil   String?
+  escolaridade  String?
+  profissao     String?
+
+  aceitaSms Boolean @default(true)
+  ativo     Boolean @default(true)
+  obito     Boolean @default(false)
+
+  observacoes          String?
+  informacoesAdicionais String?
 
   criadoEm DateTime @default(now())
 
@@ -148,8 +163,38 @@ model Consulta {
   paciente Paciente @relation(fields: [pacienteId], references: [id])
   profissional Profissional @relation(fields: [profissionalId], references: [id])
   usuario Usuario? @relation(fields: [usuarioId], references: [id])
+  solicitacoesExclusao SolicitacaoExclusao[]
 
   @@map("consultas")
+}
+
+model SolicitacaoExclusao {
+  id            Int      @id @default(autoincrement())
+  consultaId    Int
+  solicitanteId Int
+  motivo        String   @banco.Text
+  status        String   @default("PENDENTE")
+  criadoEm     DateTime @default(now())
+
+  consulta    Consulta @relation(fields: [consultaId], references: [id], onDelete: Cascade)
+  solicitante Usuario  @relation(fields: [solicitanteId], references: [id])
+
+  @@map("solicitacoes_exclusao")
+}
+
+model Notificacao {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int
+  titulo    String
+  mensagem  String   @banco.Text
+  tipo      String   @default("GERAL")
+  lida      Boolean  @default(false)
+  link      String?
+  criadoEm  DateTime @default(now())
+
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("notificacoes")
 }
 
 enum StatusConsulta {

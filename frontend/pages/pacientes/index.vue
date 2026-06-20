@@ -7,6 +7,7 @@ definePageMeta({
 import { onMounted, ref, computed } from 'vue'
 import api from '@/services/api'
 import PacienteNovo from './novo.vue'
+import ProntuarioPaciente from '~/components/ProntuarioPaciente.vue'
 
 useHead({ title: 'Pacientes' })
 
@@ -21,29 +22,43 @@ const toast = useToast()
 const exibirModalNovo = ref(false)
 function abrirModalNovo() { exibirModalNovo.value = true }
 function fecharModalNovo() { exibirModalNovo.value = false }
-async function aoSalvarNovo() {
+function aoSalvarNovo(novoPaciente) {
   fecharModalNovo()
-  await carregar()
+  if (novoPaciente) {
+    pacientes.value.unshift(novoPaciente)
+  } else {
+    carregar()
+  }
 }
 
-// --- Modal Excluir ---
-const exibirModalExcluir = ref(false)
+// --- Modal Prontuário ---
+const prontuarioAberto = ref(false)
+const pacienteIdAtivo = ref(null)
+function abrirProntuario(id) { pacienteIdAtivo.value = id; prontuarioAberto.value = true }
+function fecharProntuario() { prontuarioAberto.value = false; pacienteIdAtivo.value = null }
+function aoPacienteExcluido(id) {
+  pacientes.value = pacientes.value.filter(p => p.id !== id)
+  fecharProntuario()
+}
+
+// --- Excluir ---
 const excluindo = ref(false)
-const pacienteParaExcluir = ref(null)
+const { confirmar } = useConfirm()
 
-function abrirModalExcluir(paciente) {
-  pacienteParaExcluir.value = paciente
-  exibirModalExcluir.value = true
-}
-function fecharModalExcluir() { exibirModalExcluir.value = false }
-
-async function confirmarExclusao() {
+async function excluir(paciente) {
+  const ok = await confirmar({
+    titulo: 'Excluir Paciente',
+    mensagem: 'Tem certeza que deseja excluir',
+    nome: paciente.nome,
+    aviso: 'Todos os dados e histórico serão removidos permanentemente.',
+    textoBotao: 'Sim, excluir',
+  })
+  if (!ok) return
   try {
     excluindo.value = true
-    await api.delete(`/pacientes/${pacienteParaExcluir.value.id}`)
-    fecharModalExcluir()
+    await api.delete(`/pacientes/${paciente.id}`)
     await carregar()
-  } catch (error) {
+  } catch {
     toast.erro('Erro ao excluir paciente.')
   } finally {
     excluindo.value = false
@@ -141,14 +156,14 @@ onMounted(carregar)
             <td class="text-muted">{{ paciente.email || '-' }}</td>
             <td class="text-right">
               <div class="acoes">
-                <NuxtLink :to="`/pacientes/${paciente.id}`" class="btn-prontuario">
+                <button class="btn-prontuario" @click="abrirProntuario(paciente.id)">
                   <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
                   </svg>
                   Prontuário
-                </NuxtLink>
-                <button class="btn-excluir" @click="abrirModalExcluir(paciente)">
+                </button>
+                <button class="btn-excluir" @click="excluir(paciente)">
                   <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
                   </svg>
@@ -160,6 +175,14 @@ onMounted(carregar)
         </tbody>
       </table>
     </div>
+
+    <!-- Modal: Prontuário -->
+    <ProntuarioPaciente
+      v-if="prontuarioAberto && pacienteIdAtivo"
+      :paciente-id="pacienteIdAtivo"
+      @fechar="fecharProntuario"
+      @excluido="aoPacienteExcluido"
+    />
 
     <!-- Modal: Novo Paciente -->
     <div v-if="exibirModalNovo" class="modal-overlay" @click.self="fecharModalNovo">
@@ -174,36 +197,6 @@ onMounted(carregar)
       </div>
     </div>
 
-    <!-- Modal: Confirmar Exclusão -->
-    <div v-if="exibirModalExcluir" class="modal-overlay" @click.self="fecharModalExcluir">
-      <div class="modal-container">
-        <div class="modal-header">
-          <h2>Excluir Paciente</h2>
-          <button class="btn-fechar-modal" @click="fecharModalExcluir">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="excluir-content">
-            <div class="excluir-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-            </div>
-            <p class="excluir-texto">
-              Tem certeza que deseja excluir o paciente
-              <strong>{{ pacienteParaExcluir?.nome }}</strong>?
-            </p>
-            <p class="excluir-aviso">Todos os dados e histórico serão removidos permanentemente.</p>
-          </div>
-          <div class="modal-footer">
-            <button class="btn-cancelar" @click="fecharModalExcluir" :disabled="excluindo">Cancelar</button>
-            <button class="btn-excluir-confirmar" @click="confirmarExclusao" :disabled="excluindo">
-              {{ excluindo ? 'Excluindo...' : 'Sim, excluir' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
 
   </div>
 </template>
@@ -268,7 +261,8 @@ onMounted(carregar)
   box-shadow: 0 6px 16px rgba(5, 150, 105, 0.25);
 }
 
-.modal-container.modal-xl { max-width: 780px; max-height: 88vh; overflow-y: auto; }
+.modal-container.modal-xl { max-width: 780px; max-height: 88vh; display: flex; flex-direction: column; }
+.modal-container.modal-xl > .modal-body { overflow-y: auto; flex: 1; min-height: 0; padding: 0; }
 
 /* ─── Barra de Ferramentas / Input de Busca ──── */
 .toolbar {
@@ -399,26 +393,8 @@ onMounted(carregar)
 .btn-excluir:hover { background: #fef2f2; border-color: #f87171; }
 
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15,23,42,.4); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 999; }
-.modal-container { background: #fff; border-radius: 16px; width: 100%; max-width: 420px; box-shadow: 0 20px 25px -5px rgba(0,0,0,.1); overflow: hidden; animation: aparecer .2s ease-out; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
-.modal-header h2 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
-.btn-fechar-modal { background: none; border: none; font-size: 24px; color: #94a3b8; cursor: pointer; line-height: 1; }
-.btn-fechar-modal:hover { color: #475569; }
+.modal-container { background: #fff; border-radius: 16px; width: 100%; max-width: 420px; box-shadow: 0 20px 25px -5px rgba(0,0,0,.1); overflow: hidden; }
 .modal-body { padding: 24px; }
-@keyframes aparecer { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
-
-.excluir-content { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 8px 0 24px; gap: 12px; }
-.excluir-icon { width: 52px; height: 52px; border-radius: 14px; background: #fef2f2; color: #dc2626; display: flex; align-items: center; justify-content: center; }
-.excluir-icon svg { width: 26px; height: 26px; }
-.excluir-texto { font-size: 15px; color: #1e293b; line-height: 1.5; margin: 0; }
-.excluir-aviso { font-size: 13px; color: #94a3b8; margin: 0; }
-.modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
-.btn-cancelar { background: #f1f5f9; color: #475569; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.2s; }
-.btn-cancelar:hover { background: #e2e8f0; }
-.btn-cancelar:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-excluir-confirmar { background: #dc2626; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; }
-.btn-excluir-confirmar:hover { background: #b91c1c; }
-.btn-excluir-confirmar:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ─── Estados Clínicos (Carregando / Vazio) ─── */
 .state-card {

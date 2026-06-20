@@ -8,13 +8,14 @@ export function useMascaras() {
       .slice(0, 14)
   }
 
-  // Mantém uppercase e permite apenas letras, dígitos, /, - e espaço
-  // Ex: CRM/SP 123456 · CRO/RJ 12345 · COREN/SP 654321
-  function mascaraConselho(valor) {
+  function mascaraCnpj(valor) {
     return String(valor || '')
-      .toUpperCase()
-      .replace(/[^A-Z0-9/\- ]/g, '')
-      .slice(0, 25)
+      .replace(/\D/g, '')
+      .replace(/(\d{2})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1/$2')
+      .replace(/(\d{4})(\d{1,2})/, '$1-$2')
+      .slice(0, 18)
   }
 
   // Celular: (00) 00000-0000 · Fixo: (00) 0000-0000
@@ -30,5 +31,51 @@ export function useMascaras() {
       .replace(/(\d{5})(\d{1,4})/, '$1-$2')
   }
 
-  return { mascaraCpf, mascaraConselho, mascaraTelefone }
+  // DD/MM/AAAA
+  function mascaraData(valor) {
+    return String(valor || '')
+      .replace(/\D/g, '')
+      .replace(/(\d{2})(\d)/, '$1/$2')
+      .replace(/(\d{2})(\d)/, '$1/$2')
+      .slice(0, 10)
+  }
+
+  // 00000-000
+  function mascaraCep(valor) {
+    return String(valor || '')
+      .replace(/\D/g, '')
+      .replace(/(\d{5})(\d)/, '$1-$2')
+      .slice(0, 9)
+  }
+
+  // 00.000.000-0 (simplificado, varia por estado)
+  function mascaraRg(valor) {
+    return String(valor || '')
+      .replace(/\D/g, '')
+      .replace(/(\d{2})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+      .slice(0, 12)
+  }
+
+  // 000 0000 0000 0000
+  function mascaraCns(valor) {
+    return String(valor || '')
+      .replace(/\D/g, '')
+      .replace(/(\d{3})(\d)/, '$1 $2')
+      .replace(/(\d{4})(\d)/, '$1 $2')
+      .replace(/(\d{4})(\d)/, '$1 $2')
+      .slice(0, 18)
+  }
+
+  // Mantém uppercase e permite apenas letras, dígitos, /, - e espaço
+  // Ex: CRM/SP 123456 · CRO/RJ 12345 · COREN/SP 654321
+  function mascaraConselho(valor) {
+    return String(valor || '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9/\- ]/g, '')
+      .slice(0, 25)
+  }
+
+  return { mascaraCpf, mascaraCnpj, mascaraTelefone, mascaraData, mascaraCep, mascaraRg, mascaraCns, mascaraConselho }
 }

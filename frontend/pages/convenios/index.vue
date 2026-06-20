@@ -46,7 +46,7 @@
                   </svg>
                   Editar
                 </button>
-                <button class="btn-excluir" @click="abrirModalExcluir(convenio)">
+                <button class="btn-excluir" @click="excluir(convenio)">
                   <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
                   </svg>
@@ -84,31 +84,6 @@
       </div>
     </div>
 
-    <!-- Modal: Excluir Convênio -->
-    <div v-if="exibirModalExcluir" class="modal-overlay" @click.self="fecharModalExcluir">
-      <div class="modal-container modal-sm">
-        <div class="modal-header">
-          <h2>Excluir Convênio</h2>
-          <button class="btn-fechar-modal" @click="fecharModalExcluir">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="excluir-content">
-            <div class="excluir-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-            </div>
-            <p class="excluir-texto">Tem certeza que deseja excluir o convênio <strong>{{ convenioParaExcluir?.nome }}</strong>?</p>
-            <p class="excluir-aviso">Esta ação não pode ser desfeita.</p>
-          </div>
-          <div class="modal-footer">
-            <button class="btn-cancelar" @click="fecharModalExcluir" :disabled="excluindo">Cancelar</button>
-            <button class="btn-excluir-confirmar" @click="confirmarExclusao" :disabled="excluindo">{{ excluindo ? 'Excluindo...' : 'Sim, excluir' }}</button>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <div v-if="exibirModalNovo" class="modal-overlay" @click.self="fecharModalNovo">
       <div class="modal-container">
@@ -171,21 +146,24 @@ async function salvarEdicao() {
   }
 }
 
-// --- Modal Excluir ---
-const exibirModalExcluir = ref(false)
+// --- Excluir ---
 const excluindo = ref(false)
-const convenioParaExcluir = ref(null)
+const { confirmar } = useConfirm()
 
-function abrirModalExcluir(convenio) { convenioParaExcluir.value = convenio; exibirModalExcluir.value = true }
-function fecharModalExcluir() { exibirModalExcluir.value = false }
-
-async function confirmarExclusao() {
+async function excluir(convenio) {
+  const ok = await confirmar({
+    titulo: 'Excluir Convênio',
+    mensagem: 'Tem certeza que deseja excluir',
+    nome: convenio.nome,
+    aviso: 'Verifique se não há pacientes vinculados a este convênio.',
+    textoBotao: 'Sim, excluir',
+  })
+  if (!ok) return
   try {
     excluindo.value = true
-    await api.delete(`/convenios/${convenioParaExcluir.value.id}`)
-    fecharModalExcluir()
+    await api.delete(`/convenios/${convenio.id}`)
     await buscarConvenios()
-  } catch (error) {
+  } catch {
     toast.erro('Erro ao excluir convênio. Verifique se não há pacientes vinculados.')
   } finally {
     excluindo.value = false
@@ -269,16 +247,6 @@ onMounted(() => {
 .btn-salvar { background: #059669; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif; }
 .btn-salvar:hover { background: #047857; }
 .btn-salvar:disabled { opacity: 0.6; cursor: not-allowed; }
-.excluir-content { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 8px 0 24px; gap: 12px; }
-.excluir-icon { width: 52px; height: 52px; border-radius: 14px; background: #fef2f2; color: #dc2626; display: flex; align-items: center; justify-content: center; }
-.excluir-icon svg { width: 26px; height: 26px; }
-.excluir-texto { font-size: 15px; color: #1e293b; line-height: 1.5; margin: 0; }
-.excluir-aviso { font-size: 13px; color: #94a3b8; margin: 0; }
-.btn-excluir-confirmar { background: #dc2626; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif; }
-.btn-excluir-confirmar:hover { background: #b91c1c; }
-.btn-excluir-confirmar:disabled { opacity: 0.6; cursor: not-allowed; }
-
-.modal-container.modal-sm { max-width: 420px; }
 
 .estado-carregamento { padding: 60px; display: flex; flex-direction: column; align-items: center; gap: 12px; color: #64748b; }
 .spinner { animation: rodar 1s linear infinite; color: #00a86b; }
