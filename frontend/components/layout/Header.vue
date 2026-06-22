@@ -22,15 +22,6 @@
           <component :is="item.icon" :size="14" class="nav-icon" />
           {{ item.nome }}
         </NuxtLink>
-        <NuxtLink
-          v-if="isAdmin"
-          to="/solicitacoes"
-          class="nav-link"
-          :class="{ active: isActive('/solicitacoes') }"
-        >
-          <FileText :size="14" class="nav-icon" />
-          Solicitações
-        </NuxtLink>
       </nav>
 
       <!-- Ações direitas -->
@@ -119,17 +110,32 @@ const cargoExibido = computed(() => {
   return c.charAt(0).toUpperCase() + c.slice(1).toLowerCase()
 })
 const letraAvatar = computed(() => nomeExibido.value.charAt(0).toUpperCase())
-const isAdmin     = computed(() => usuario.value?.cargo === 'admin')
+const isAdmin   = computed(() => usuario.value?.cargo === 'admin')
+const isMedico  = computed(() => usuario.value?.cargo === 'medico')
 
-const navItems = [
-  { nome: 'Dashboard',    rota: '/dashboard',     icon: LayoutDashboard },
-  { nome: 'Agenda',       rota: '/agenda',         icon: CalendarDays },
-  { nome: 'Pacientes',    rota: '/pacientes',      icon: Users },
-  { nome: 'Consultas',    rota: '/consultas',      icon: Clipboard },
-  { nome: 'Profissionais',rota: '/profissionais',  icon: UserCog },
-  { nome: 'Especialidades',rota: '/especialidades',icon: Stethoscope },
-  { nome: 'Convênios',    rota: '/convenios',      icon: CreditCard },
-]
+const navItems = computed(() => {
+  if (isAdmin.value) return [
+    { nome: 'Dashboard',      rota: '/dashboard',      icon: LayoutDashboard },
+    { nome: 'Agenda',         rota: '/agenda',          icon: CalendarDays },
+    { nome: 'Pacientes',      rota: '/pacientes',       icon: Users },
+    { nome: 'Profissionais',  rota: '/profissionais',   icon: UserCog },
+    { nome: 'Especialidades', rota: '/especialidades',  icon: Stethoscope },
+    { nome: 'Convênios',      rota: '/convenios',       icon: CreditCard },
+    { nome: 'Solicitações',   rota: '/solicitacoes',    icon: FileText },
+  ]
+  if (isMedico.value) return [
+    { nome: 'Agenda',            rota: '/agenda',    icon: CalendarDays },
+    { nome: 'Minhas Consultas',  rota: '/consultas', icon: Clipboard },
+    { nome: 'Pacientes',         rota: '/pacientes', icon: Users },
+  ]
+  return [
+    { nome: 'Agenda',         rota: '/agenda',         icon: CalendarDays },
+    { nome: 'Pacientes',      rota: '/pacientes',      icon: Users },
+    { nome: 'Profissionais',  rota: '/profissionais',  icon: UserCog },
+    { nome: 'Especialidades', rota: '/especialidades', icon: Stethoscope },
+    { nome: 'Convênios',      rota: '/convenios',      icon: CreditCard },
+  ]
+})
 
 function isActive(rota) {
   return route.path === rota || route.path.startsWith(rota + '/')
@@ -161,8 +167,8 @@ onUnmounted(() => document.removeEventListener('click', fecharAoClicarFora))
   left: 0;
   right: 0;
   height: var(--topbar-h, 64px);
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
   z-index: 200;
 }
 
@@ -205,7 +211,7 @@ onUnmounted(() => document.removeEventListener('click', fecharAoClicarFora))
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 15px;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--text-main);
   letter-spacing: -0.2px;
   white-space: nowrap;
 }

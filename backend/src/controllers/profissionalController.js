@@ -34,7 +34,7 @@ exports.buscarPorId = async (req, res) => {
 
 exports.criar = async (req, res) => {
   try {
-    const { nome, cpf, telefone, email, registroConselho, especialidadeId } = req.body
+    const { nome, cpf, telefone, email, registroConselho, especialidadeId, valorConsulta, valorRetorno } = req.body
 
     if (!especialidadeId) {
       return res.status(400).json({ error: 'Especialidade é obrigatória' })
@@ -50,8 +50,10 @@ exports.criar = async (req, res) => {
         nome,
         cpf,
         telefone,
-        email,
-        registroConselho,
+        email: email || null,
+        registroConselho: registroConselho || null,
+        valorConsulta: valorConsulta ? Number(valorConsulta) : null,
+        valorRetorno:  valorRetorno  ? Number(valorRetorno)  : null,
         especialidadeId: Number(especialidadeId)
       },
       include: { especialidade: true }
@@ -66,7 +68,7 @@ exports.criar = async (req, res) => {
 exports.atualizar = async (req, res) => {
   try {
     const { id } = req.params
-    const { nome, cpf, telefone, email, registroConselho, especialidadeId } = req.body
+    const { nome, cpf, telefone, email, registroConselho, especialidadeId, valorConsulta, valorRetorno } = req.body
 
     const profissional = await prisma.profissional.update({
       where: { id: Number(id) },
@@ -76,6 +78,8 @@ exports.atualizar = async (req, res) => {
         telefone,
         email: email || null,
         registroConselho: registroConselho || null,
+        valorConsulta: valorConsulta !== undefined ? (valorConsulta ? Number(valorConsulta) : null) : undefined,
+        valorRetorno:  valorRetorno  !== undefined ? (valorRetorno  ? Number(valorRetorno)  : null) : undefined,
         especialidadeId: Number(especialidadeId)
       },
       include: { especialidade: true }

@@ -59,6 +59,16 @@
         </select>
       </div>
 
+      <div class="field-group">
+        <label>Valor da Consulta (R$)</label>
+        <input v-model="form.valorConsulta" type="number" step="0.01" min="0" placeholder="0,00" :disabled="enviando" />
+      </div>
+
+      <div class="field-group">
+        <label>Valor do Retorno (R$)</label>
+        <input v-model="form.valorRetorno" type="number" step="0.01" min="0" placeholder="0,00" :disabled="enviando" />
+      </div>
+
     </div>
 
     <div class="modal-footer">
@@ -91,7 +101,9 @@ const form = ref({
   telefone: '',
   email: '',
   registroConselho: '',
-  especialidadeId: ''
+  especialidadeId: '',
+  valorConsulta: '',
+  valorRetorno: ''
 })
 
 async function carregarEspecialidades() {
@@ -112,7 +124,9 @@ async function salvar() {
       telefone: form.value.telefone,
       email: form.value.email || null,
       registroConselho: form.value.registroConselho || null,
-      especialidadeId: Number(form.value.especialidadeId)
+      especialidadeId: Number(form.value.especialidadeId),
+      valorConsulta: form.value.valorConsulta ? Number(form.value.valorConsulta) : null,
+      valorRetorno:  form.value.valorRetorno  ? Number(form.value.valorRetorno)  : null,
     })
     emit('salvo')
   } catch (error) {

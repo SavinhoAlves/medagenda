@@ -182,11 +182,22 @@ html.dark .empty-state { color: #475569; }
 html.dark .calendar-wrapper {
   background: #1e293b;
   border-color: #334155;
-  box-shadow: none;
+
+  /* Sobrescreve as variáveis CSS nativas do FullCalendar.
+     Sem isso, elementos internos continuam usando #fff e azul claro. */
+  --fc-page-bg-color:       #1e293b;
+  --fc-neutral-bg-color:    rgba(0, 0, 0, 0.12);
+  --fc-border-color:        #263548;
+  --fc-today-bg-color:      rgba(16, 185, 129, 0.05);
+  --fc-non-business-color:  rgba(0, 0, 0, 0.1);
+  --fc-highlight-color:     rgba(16, 185, 129, 0.12);
+  --fc-now-indicator-color: #f43f5e;
+  --fc-list-event-hover-bg-color: #263548;
 }
 
-/* Toolbar */
-html.dark .calendar-wrapper .fc-toolbar-title { color: #f1f5f9 !important; }
+/* ── Toolbar ── */
+html.dark .calendar-wrapper .fc-toolbar-title { color: #e2e8f0 !important; }
+
 html.dark .calendar-wrapper .fc-button {
   background: #263548 !important;
   border-color: #334155 !important;
@@ -194,33 +205,93 @@ html.dark .calendar-wrapper .fc-button {
 }
 html.dark .calendar-wrapper .fc-button:hover {
   background: #334155 !important;
-  border-color: #475569 !important;
-  color: #f1f5f9 !important;
+  color: #e2e8f0 !important;
 }
 html.dark .calendar-wrapper .fc-button-active,
 html.dark .calendar-wrapper .fc-button-primary:not(:disabled).fc-button-active {
-  background: #059669 !important;
-  border-color: #059669 !important;
-  color: #ffffff !important;
+  background: #e2e8f0 !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
 }
 
-/* Grid */
+/* ── Cabeçalho de colunas ── */
 html.dark .calendar-wrapper .fc-col-header-cell {
   background: #162032 !important;
   border-color: #334155 !important;
 }
-html.dark .calendar-wrapper .fc-col-header-cell-cushion { color: #94a3b8 !important; }
-html.dark .calendar-wrapper .fc-theme-standard td,
-html.dark .calendar-wrapper .fc-theme-standard th { border-color: #334155 !important; }
-html.dark .calendar-wrapper .fc-scrollgrid { border-top-color: #334155 !important; }
-html.dark .calendar-wrapper .fc-timegrid-slot-label-cushion { color: #64748b !important; }
-html.dark .calendar-wrapper .fc-day-today { background: rgba(16, 185, 129, 0.04) !important; }
-html.dark .calendar-wrapper .fc-day-past  { background: rgba(0, 0, 0, 0.25) !important; }
-html.dark .calendar-wrapper .fc-daygrid-day-number { color: #94a3b8 !important; }
-html.dark .calendar-wrapper .fc-daygrid-day-number:hover { color: #f1f5f9 !important; }
-html.dark .calendar-wrapper .fc-now-indicator-line { border-color: #10b981 !important; }
+html.dark .calendar-wrapper .fc-col-header-cell-cushion {
+  color: #64748b !important;
+}
+html.dark .calendar-wrapper .fc-col-header-cell.fc-day-today .fc-col-header-cell-cushion {
+  color: #34d399 !important;
+}
 
-/* Badges do mês */
+/* ── Scrollers e eixo de tempo (garante que herdam o fundo escuro) ── */
+html.dark .calendar-wrapper .fc-scroller-harness,
+html.dark .calendar-wrapper .fc-scroller,
+html.dark .calendar-wrapper .fc-timegrid-axis,
+html.dark .calendar-wrapper .fc-timegrid-divider {
+  background: transparent !important;
+}
+
+/* ── Grade ── */
+html.dark .calendar-wrapper .fc-theme-standard td,
+html.dark .calendar-wrapper .fc-theme-standard th {
+  border-color: #263548 !important;
+}
+html.dark .calendar-wrapper .fc-scrollgrid {
+  border-top-color: #334155 !important;
+}
+html.dark .calendar-wrapper .fc-timegrid-slot-minor {
+  border-top-color: #192233 !important;
+}
+html.dark .calendar-wrapper .fc-timegrid-slot-label-cushion {
+  color: #475569 !important;
+}
+
+/* ── Seleção de intervalo (drag-to-create) ── */
+html.dark .calendar-wrapper .fc-highlight {
+  background: rgba(16, 185, 129, 0.12) !important;
+}
+
+/* ── Hoje ── */
+html.dark .calendar-wrapper .fc-day-today {
+  background: rgba(16, 185, 129, 0.05) !important;
+}
+
+/* ── Dias passados ── */
+html.dark .calendar-wrapper .fc-day-past {
+  background: rgba(0, 0, 0, 0.12) !important;
+}
+/* Coluna de dia passado no timeGrid: tint escuro em vez do rgba claro */
+html.dark .calendar-wrapper .fc-timeGridWeek-view .fc-timegrid-col.fc-day-past,
+html.dark .calendar-wrapper .fc-timeGridDay-view  .fc-timegrid-col.fc-day-past {
+  background: rgba(0, 0, 0, 0.2) !important;
+}
+
+/* ── Número de dia (visão mês) ── */
+html.dark .calendar-wrapper .fc-daygrid-day-number {
+  color: #64748b !important;
+}
+html.dark .calendar-wrapper .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  color: #34d399 !important;
+}
+
+/* ── Hover célula mês ── */
+html.dark .calendar-wrapper .fc-dayGridMonth-view .fc-daygrid-day:hover .fc-daygrid-day-frame {
+  background: #263548 !important;
+}
+
+/* ── Indicador de hora atual ── */
+html.dark .calendar-wrapper .fc-now-indicator-line {
+  border-color: #f43f5e !important;
+}
+html.dark .calendar-wrapper .fc-now-indicator-arrow {
+  border-top-color:    #f43f5e !important;
+  border-bottom-color: #f43f5e !important;
+}
+
+/* ── Badges do mês ── */
 html.dark .calendar-wrapper .day-event-badge {
   background: #059669 !important;
 }
@@ -776,8 +847,12 @@ html.dark .conv-carteira-input {
   color: #f1f5f9;
 }
 
-/* Tabela clínica no prontuário */
-html.dark .card,
+/* Cards no prontuário */
+html.dark .card {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
 html.dark .card-title { color: #f1f5f9; }
 
 /* ══════════════════════════════════════
@@ -962,7 +1037,11 @@ html.dark .confirm-icon { background: rgba(239, 68, 68, 0.12); color: #f87171; }
 html.dark .header-avatar { background: rgba(5, 150, 105, 0.12); color: #10b981; }
 
 /* Switch / slider no prontuário */
-html.dark .switch-label { color: #94a3b8; }
+html.dark .switch-label {
+  background: #162032;
+  border-color: #334155;
+  color: #94a3b8;
+}
 html.dark .radio-opt    { color: #94a3b8; }
 html.dark .radio-row    { gap: 12px; }
 html.dark .req          { color: #f87171; }
@@ -1051,3 +1130,125 @@ html.dark .sk-dot,
 html.dark .sk-line,
 html.dark .sk-badge { background: #334155; }
 html.dark .skeleton-row { background: #263548; }
+
+/* ══════════════════════════════════════
+   MODAL DE NOTIFICAÇÃO
+   ══════════════════════════════════════ */
+html.dark .notif-modal-overlay { background: rgba(0,0,0,0.65); }
+html.dark .notif-modal {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+html.dark .notif-modal-head { border-bottom-color: #334155; }
+html.dark .notif-modal-titulo { color: #f1f5f9; }
+html.dark .notif-modal-tempo  { color: #64748b; }
+html.dark .notif-modal-fechar { color: #64748b; }
+html.dark .notif-modal-fechar:hover { background: #334155; color: #94a3b8; }
+html.dark .notif-modal-msg { color: #e2e8f0; }
+
+/* ══════════════════════════════════════
+   CONFIGURAÇÕES — NOVOS CARDS
+   ══════════════════════════════════════ */
+html.dark .card-icon.orange { background: rgba(245,158,11,.1); color: #fbbf24; }
+html.dark .card-icon.teal   { background: rgba(20,184,166,.12); color: #2dd4bf; }
+html.dark .field-hint       { color: #475569; }
+
+html.dark .user-table th { color: #475569; border-bottom-color: #334155; }
+html.dark .user-table td { border-bottom-color: #263548; }
+html.dark .user-nome     { color: #f1f5f9; }
+html.dark .user-email-cell { color: #64748b; }
+
+html.dark .cargo-admin    { background: rgba(245,158,11,.12); color: #fbbf24; }
+html.dark .cargo-medico   { background: rgba(2,132,199,.1);   color: #38bdf8; }
+html.dark .cargo-operador { background: rgba(16,185,129,.1);  color: #34d399; }
+
+html.dark .user-empty { color: #475569; }
+
+html.dark .modal-overlay-cfg { background: rgba(0,0,0,0.65); }
+html.dark .modal-cfg {
+  background: #1e293b; border-color: #334155;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+html.dark .modal-cfg-header { border-bottom-color: #334155; }
+html.dark .modal-cfg-header h3 { color: #f1f5f9; }
+html.dark .modal-cfg-footer { border-top-color: #334155; }
+html.dark .btn-cancelar-cfg { background: #263548; border-color: #334155; color: #94a3b8; }
+html.dark .btn-cancelar-cfg:hover { background: #334155; }
+
+/* ══════════════════════════════════════
+   CORREÇÕES DE TEMA — GAPS IDENTIFICADOS
+   ══════════════════════════════════════ */
+
+/* ── Consultas: botões de ação na tabela ── */
+html.dark .btn-detalhe {
+  background: none;
+  border-color: #334155;
+  color: #94a3b8;
+}
+html.dark .btn-detalhe:hover {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: #10b981;
+  color: #10b981;
+}
+
+html.dark .btn-cancelar-consulta {
+  background: none;
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+html.dark .btn-cancelar-consulta:hover {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* ── Consultas: modal de detalhes ── */
+html.dark .detalhe-item {
+  background: #162032;
+  border-color: #334155;
+}
+html.dark .detalhe-label { color: #64748b; }
+html.dark .detalhe-valor { color: #e2e8f0; }
+html.dark .detalhe-valor.highlight { color: #34d399; }
+html.dark .btn-ver-pagina { background: #059669; color: #fff; }
+
+/* ── Configurações: switch items ── */
+html.dark .switch-item {
+  background: #1e293b;
+  border-color: #263548;
+}
+html.dark .switch-item strong { color: #e2e8f0; }
+
+html.dark .switch-item input[type="checkbox"] {
+  background: #334155;
+}
+html.dark .switch-item input[type="checkbox"]::after {
+  background: #94a3b8;
+}
+html.dark .switch-item input[type="checkbox"]:checked {
+  background: #059669;
+}
+html.dark .switch-item input[type="checkbox"]:checked::after {
+  background: #ffffff;
+}
+
+/* ── Configurações: badges de contexto ── */
+html.dark .badge-readonly {
+  background: #263548;
+  color: #64748b;
+}
+html.dark .badge-local {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+}
+
+/* ── Dashboard: título da atividade recente ── */
+html.dark .activity-title { color: #f1f5f9; }
+
+/* ── Dashboard: stat-label dark ── */
+html.dark .stat-label { color: #e2e8f0; }
+
+/* ── Login antigo (dead code cleanup) ── */
+/* As classes .login-root/.login-card foram substituídas por .lp-* no redesign.
+   As regras abaixo ficam como fallback para garantir que nenhuma outra
+   instância dessas classes apareça em branco no modo escuro. */

@@ -6,12 +6,13 @@ import { CalendarDays, Plus, Users, ArrowRight } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'dashboard',
-  middleware: 'auth'
+  middleware: ['auth', 'nao-operador']
 })
 
 useHead({ title: 'Dashboard' })
 
 const authStore = useAuthStore()
+const isMedico  = computed(() => authStore.isMedico)
 const carregando = ref(true)
 const dados = ref({
   pacientes: 0,
@@ -105,7 +106,7 @@ const stats = computed(() => [
     </svg>`,
     color: '#f59e0b',
     bg: 'rgba(245,158,11,.1)',
-    rota: '/consultas',
+    rota: authStore.isMedico ? '/consultas' : '/agenda',
   },
   {
     id: 'consultasHoje',
@@ -138,7 +139,7 @@ const stats = computed(() => [
             <CalendarDays :size="15" />
             Agenda
           </NuxtLink>
-          <NuxtLink to="/consultas/novo" class="qa-btn qa-primary">
+          <NuxtLink v-if="isMedico" to="/consultas/novo" class="qa-btn qa-primary">
             <Plus :size="15" />
             Nova consulta
           </NuxtLink>
@@ -176,7 +177,7 @@ const stats = computed(() => [
       <div class="activity-card">
         <div class="activity-header">
           <h2 class="activity-title">Atividade recente</h2>
-          <NuxtLink to="/consultas" class="activity-link">
+          <NuxtLink v-if="isMedico" to="/consultas" class="activity-link">
             Ver todas
             <ArrowRight :size="13" />
           </NuxtLink>
@@ -218,7 +219,7 @@ const stats = computed(() => [
             <path d="M24 16v8l5 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
           <p>Nenhuma atividade registrada</p>
-          <NuxtLink to="/consultas/novo" class="qa-btn qa-primary" style="margin-top: 8px;">
+          <NuxtLink v-if="isMedico" to="/consultas/novo" class="qa-btn qa-primary" style="margin-top: 8px;">
             <Plus :size="14" /> Agendar consulta
           </NuxtLink>
         </div>

@@ -12,5 +12,8 @@ export default {
   },
   excluir(id) {
     return api.delete(`/consultas/${id}`)
+  },
+  alterarStatus(id, status) {
+    return api.patch(`/consultas/${id}/status`, { status })
   }
 }

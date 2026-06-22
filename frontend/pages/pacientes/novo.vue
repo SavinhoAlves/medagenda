@@ -58,6 +58,16 @@ async function salvarPaciente() {
 
 <template>
   <div class="novo-paciente">
+
+    <!-- Prévia do paciente -->
+    <div class="pac-preview">
+      <div class="pac-prev-avatar">{{ form.nome ? form.nome.trim().charAt(0).toUpperCase() : '?' }}</div>
+      <div class="pac-prev-info">
+        <p class="pac-prev-nome">{{ form.nome || 'Nome do paciente' }}</p>
+        <p class="pac-prev-sub">{{ form.dataNascimento ? form.dataNascimento : 'Data de nascimento' }} · {{ form.sexo || 'Sexo' }}</p>
+      </div>
+    </div>
+
     <!-- Abas -->
     <div class="tab-nav">
       <button
@@ -278,46 +288,93 @@ async function salvarPaciente() {
 </template>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600&display=swap');
+
 .novo-paciente {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 24px;
+  padding: 20px 24px 24px;
+}
+
+/* Patient preview */
+.pac-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+  border: 1px solid #86efac;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.pac-prev-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.pac-prev-info { min-width: 0; }
+
+.pac-prev-nome {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 2px;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+}
+
+.pac-prev-sub {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
 }
 
 /* Abas */
 .tab-nav {
   display: flex;
-  gap: 4px;
-  border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 24px;
-  padding-bottom: 0;
+  gap: 2px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 22px;
 }
 
 .tab-btn {
+  flex: 1;
   background: none;
   border: none;
-  padding: 10px 18px;
+  padding: 8px 14px;
   font-size: 13px;
   font-weight: 600;
   font-family: 'Inter', sans-serif;
   color: #64748b;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
+  border-radius: 8px;
   transition: all 0.15s ease;
-  border-radius: 6px 6px 0 0;
+  white-space: nowrap;
 }
 
 .tab-btn:hover {
-  color: #0f172a;
-  background: #f8fafc;
+  color: #334155;
+  background: rgba(255,255,255,0.6);
 }
 
 .tab-btn.active {
   color: #059669;
-  border-bottom-color: #059669;
-  background: none;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 /* Grid de campos */

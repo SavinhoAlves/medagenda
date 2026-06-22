@@ -130,6 +130,19 @@ exports.listarConvenios = async (req, res) => {
   }
 }
 
+exports.listarConsultas = async (req, res) => {
+  try {
+    const consultas = await prisma.consulta.findMany({
+      where: { pacienteId: Number(req.params.id) },
+      include: { profissional: { include: { especialidade: true } } },
+      orderBy: { dataInicio: 'desc' },
+    })
+    return res.json(consultas)
+  } catch (error) {
+    return res.status(500).json({ error: error.message })
+  }
+}
+
 exports.buscarPorId = async (req, res) => {
   try {
     const { id } = req.params

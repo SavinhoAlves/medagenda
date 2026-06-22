@@ -31,7 +31,9 @@ const form = ref({
   telefone: '',
   email: '',
   registroConselho: '',
-  especialidadeId: ''
+  especialidadeId: '',
+  valorConsulta: '',
+  valorRetorno: ''
 })
 
 async function carregar() {
@@ -55,7 +57,9 @@ function preencherForm(dados) {
     telefone: dados.telefone || '',
     email: dados.email || '',
     registroConselho: dados.registroConselho || '',
-    especialidadeId: dados.especialidadeId || ''
+    especialidadeId: dados.especialidadeId || '',
+    valorConsulta: dados.valorConsulta != null ? String(dados.valorConsulta) : '',
+    valorRetorno:  dados.valorRetorno  != null ? String(dados.valorRetorno)  : '',
   }
 }
 
@@ -77,7 +81,9 @@ async function salvar() {
       telefone: form.value.telefone,
       email: form.value.email || null,
       registroConselho: form.value.registroConselho || null,
-      especialidadeId: Number(form.value.especialidadeId)
+      especialidadeId: Number(form.value.especialidadeId),
+      valorConsulta: form.value.valorConsulta ? Number(form.value.valorConsulta) : null,
+      valorRetorno:  form.value.valorRetorno  ? Number(form.value.valorRetorno)  : null,
     })
     profissional.value = data
     modoEdicao.value = false
@@ -196,6 +202,22 @@ onMounted(carregar)
                 maxlength="25"
               />
               <div v-else class="field-value">{{ profissional.registroConselho || '-' }}</div>
+            </div>
+
+            <div class="form-field">
+              <label>Valor da Consulta</label>
+              <input v-if="modoEdicao" v-model="form.valorConsulta" type="number" step="0.01" min="0" class="field-input" placeholder="0,00" />
+              <div v-else class="field-value highlight">
+                {{ profissional.valorConsulta != null ? `R$ ${Number(profissional.valorConsulta).toFixed(2).replace('.', ',')}` : 'Não definido' }}
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label>Valor do Retorno</label>
+              <input v-if="modoEdicao" v-model="form.valorRetorno" type="number" step="0.01" min="0" class="field-input" placeholder="0,00" />
+              <div v-else class="field-value highlight">
+                {{ profissional.valorRetorno != null ? `R$ ${Number(profissional.valorRetorno).toFixed(2).replace('.', ',')}` : 'Não definido' }}
+              </div>
             </div>
           </div>
         </div>

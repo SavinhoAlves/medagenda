@@ -4,7 +4,7 @@ import api from '~/services/api'
 
 definePageMeta({
   layout: 'dashboard',
-  middleware: 'auth'
+  middleware: ['auth', 'medico']
 })
 
 const router = useRouter()

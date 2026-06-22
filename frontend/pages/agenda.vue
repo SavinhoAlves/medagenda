@@ -7,6 +7,8 @@ import AgendaCalendar from '../components/agenda/AgendaCalendar.vue'
 import ModalAgendamento from '../components/agenda/ModalConsulta.vue'
 import { useCurrentUser } from '~/composables/useCurrentUser'
 
+const router = useRouter()
+
 definePageMeta({ layout: 'dashboard', middleware: 'auth' })
 useHead({ title: 'Agenda' })
 
@@ -19,14 +21,23 @@ const pacientes = ref([])
 const profissionais = ref([])
 const formInicial = ref({})
 
+function toLocalISO(dateStr) {
+  if (!dateStr) return null
+  const d = new Date(String(dateStr).replace(' ', 'T'))
+  if (isNaN(d.getTime())) return null
+  const p = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+}
+
 function mapearEvento(consulta) {
+  const retorno = consulta.retorno === true
   return {
     id: String(consulta.id),
     title: consulta.paciente?.nome || 'Sem nome',
-    start: consulta.dataInicio,
-    end: consulta.dataFim,
-    backgroundColor: '#059669',
-    borderColor: '#047857',
+    start: toLocalISO(consulta.dataInicio),
+    end:   toLocalISO(consulta.dataFim),
+    backgroundColor: retorno ? '#ef4444' : '#059669',
+    borderColor:     retorno ? '#dc2626' : '#047857',
     textColor: '#ffffff',
     extendedProps: { consulta }
   }
@@ -65,12 +76,15 @@ function abrirEdicao(consulta) {
 async function salvarConsulta(dados) {
   try {
     const payload = {
-      pacienteId:    Number(dados.pacienteId),
+      pacienteId:     Number(dados.pacienteId),
       profissionalId: Number(dados.profissionalId),
-      dataInicio:    new Date(dados.dataInicio),
-      dataFim:       new Date(dados.dataFim),
-      observacoes:   dados.observacoes || null,
-      sala:          dados.sala || null,
+      dataInicio:     new Date(dados.dataInicio),
+      dataFim:        new Date(dados.dataFim),
+      observacoes:    dados.observacoes || null,
+      sala:           dados.sala || null,
+      procedimento:   dados.procedimento || 'CONSULTA',
+      convenio:       dados.convenio || null,
+      valor:          dados.valor ? Number(dados.valor) : null,
     }
     if (dados.id) {
       await appointmentService.atualizar(Number(dados.id), payload)
@@ -84,6 +98,16 @@ async function salvarConsulta(dados) {
   } catch (error) {
     console.error('[Agenda] Erro ao salvar consulta:', error)
     toast.erro('Erro ao salvar o agendamento.')
+  }
+}
+
+async function iniciarAtendimento(consulta) {
+  try {
+    await appointmentService.alterarStatus(consulta.id, 'EM_ANDAMENTO')
+    modalAberto.value = false
+    await router.push(`/consultas/${consulta.id}/atendimento`)
+  } catch {
+    toast.erro('Erro ao iniciar atendimento.')
   }
 }
 
@@ -144,6 +168,7 @@ onMounted(carregarDados)
       @fechar="modalAberto = false"
       @salvar="salvarConsulta"
       @excluido="aoExcluido"
+      @iniciar="iniciarAtendimento"
     />
 
   </div>
@@ -157,7 +182,6 @@ onMounted(carregarDados)
   display: flex;
   flex-direction: column;
   gap: 24px;
-  min-height: 100vh;
   background: #f8fafc;
   box-sizing: border-box;
 }

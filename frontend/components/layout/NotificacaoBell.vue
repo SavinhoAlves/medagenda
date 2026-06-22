@@ -38,15 +38,13 @@
             v-for="n in lista"
             :key="n.id"
             class="notif-item"
-            :class="{ 'nao-lida': !n.lida, 'sem-link': !n.link, 'expandida': expandidas.has(n.id) }"
+            :class="{ 'nao-lida': !n.lida, 'sem-link': !n.link }"
             @click="clicar(n)"
           >
             <div class="notif-icone" :class="tipoClass(n.tipo)">
-              <!-- exclusão -->
               <svg v-if="n.tipo === 'SOLICITACAO_EXCLUSAO'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
               </svg>
-              <!-- geral -->
               <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
               </svg>
@@ -64,29 +62,66 @@
       </div>
     </Transition>
   </div>
+
+  <!-- Modal de notificação (teleportado ao body para evitar z-index) -->
+  <Teleport to="body">
+    <Transition name="modal-notif-fade">
+      <div
+        v-if="notifSelecionada"
+        class="notif-modal-overlay"
+        @click.self="notifSelecionada = null"
+      >
+        <div class="notif-modal" role="dialog" aria-modal="true">
+          <div class="notif-modal-head">
+            <div class="notif-icone-modal" :class="tipoClass(notifSelecionada.tipo)">
+              <svg v-if="notifSelecionada.tipo === 'SOLICITACAO_EXCLUSAO'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+              </svg>
+            </div>
+
+            <div class="notif-modal-meta">
+              <span class="notif-modal-titulo">{{ notifSelecionada.titulo }}</span>
+              <span class="notif-modal-tempo">{{ tempoRelativo(notifSelecionada.criadoEm) }}</span>
+            </div>
+
+            <button class="notif-modal-fechar" @click="notifSelecionada = null" title="Fechar">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="notif-modal-body">
+            <p class="notif-modal-msg">{{ notifSelecionada.mensagem }}</p>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/services/api'
 
 const router = useRouter()
-const notifRef = ref(null)
-const painelAberto = ref(false)
-const carregando = ref(false)
-const naoLidas = ref(0)
-const lista = ref([])
-const expandidas = reactive(new Set())
+const notifRef         = ref(null)
+const painelAberto     = ref(false)
+const carregando       = ref(false)
+const naoLidas         = ref(0)
+const lista            = ref([])
+const notifSelecionada = ref(null)
 let pollInterval = null
 
 async function buscarCount() {
   try {
     const { data } = await api.get('/notificacoes/count')
     naoLidas.value = data.count || 0
-  } catch {
-    // silently fails
-  }
+  } catch {}
 }
 
 async function buscarLista() {
@@ -105,8 +140,6 @@ async function togglePanel() {
   painelAberto.value = !painelAberto.value
   if (painelAberto.value) {
     await buscarLista()
-  } else {
-    expandidas.clear()
   }
 }
 
@@ -116,19 +149,13 @@ async function clicar(notif) {
       await api.patch(`/notificacoes/${notif.id}/ler`)
       notif.lida = true
       naoLidas.value = Math.max(0, naoLidas.value - 1)
-    } catch {
-      // continue
-    }
+    } catch {}
   }
   if (notif.link) {
     painelAberto.value = false
     router.push(notif.link)
   } else {
-    if (expandidas.has(notif.id)) {
-      expandidas.delete(notif.id)
-    } else {
-      expandidas.add(notif.id)
-    }
+    notifSelecionada.value = notif
   }
 }
 
@@ -137,16 +164,11 @@ async function marcarTodas() {
     await api.post('/notificacoes/ler-todas')
     lista.value.forEach(n => { n.lida = true })
     naoLidas.value = 0
-  } catch {
-    // silently fails
-  }
+  } catch {}
 }
 
 function tipoClass(tipo) {
-  return {
-    SOLICITACAO_EXCLUSAO: 'icone-exclusao',
-    GERAL: 'icone-geral',
-  }[tipo] || 'icone-geral'
+  return { SOLICITACAO_EXCLUSAO: 'icone-exclusao', GERAL: 'icone-geral' }[tipo] || 'icone-geral'
 }
 
 function tempoRelativo(iso) {
@@ -162,6 +184,7 @@ function tempoRelativo(iso) {
 }
 
 const fecharFora = (e) => {
+  if (notifSelecionada.value) return
   if (notifRef.value && !notifRef.value.contains(e.target)) {
     painelAberto.value = false
   }
@@ -180,272 +203,176 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.notif-zone {
-  position: relative;
-}
+.notif-zone { position: relative; }
 
 .notif-btn {
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: none;
-  border-radius: 10px;
-  color: #64748b;
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px;
+  border: none; background: none;
+  border-radius: 9px; color: #64748b;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
-
-.notif-btn:hover,
-.notif-btn.ativo {
-  background: #f0fdf4;
-  color: #059669;
-}
-
-.notif-icon {
-  width: 22px;
-  height: 22px;
-}
+.notif-btn:hover, .notif-btn.ativo { background: #f0fdf4; color: #059669; }
+.notif-icon { width: 20px; height: 20px; }
 
 .notif-badge {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  min-width: 17px;
-  height: 17px;
-  background: #ef4444;
-  color: #ffffff;
-  font-family: 'Inter', sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  border-radius: 99px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  line-height: 1;
+  position: absolute; top: 4px; right: 4px;
+  min-width: 16px; height: 16px;
+  background: #ef4444; color: #ffffff;
+  font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 700;
+  border-radius: 99px; display: flex; align-items: center; justify-content: center;
+  padding: 0 3px; line-height: 1;
   box-shadow: 0 0 0 2px #ffffff;
 }
 
 /* ── Painel ── */
 .notif-panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  position: absolute; top: calc(100% + 8px); right: 0;
   width: 340px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: #ffffff; border: 1px solid #e2e8f0;
   border-radius: 14px;
-  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.1), 0 4px 8px -4px rgba(15, 23, 42, 0.05);
-  z-index: 1001;
-  overflow: hidden;
+  box-shadow: 0 10px 30px -5px rgba(15,23,42,0.1), 0 4px 8px -4px rgba(15,23,42,0.05);
+  z-index: 1001; overflow: hidden;
 }
 
 .painel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between;
   padding: 14px 16px 12px;
   border-bottom: 1px solid #f1f5f9;
 }
-
-.painel-titulo {
-  font-family: 'Inter', sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
+.painel-titulo { font-family:'Inter',sans-serif; font-size:14px; font-weight:700; color:#0f172a; }
 .btn-ler-todas {
-  font-family: 'Inter', sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  color: #059669;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  transition: color 0.15s;
+  font-family:'Inter',sans-serif; font-size:12px; font-weight:600; color:#059669;
+  background:none; border:none; cursor:pointer; padding:0; transition:color 0.15s;
 }
+.btn-ler-todas:hover { color:#047857; }
 
-.btn-ler-todas:hover {
-  color: #047857;
-}
-
-/* Lista */
 .notif-lista {
-  max-height: 380px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+  max-height: 380px; overflow-y: auto;
+  display: flex; flex-direction: column;
 }
 
 .notif-item {
-  width: 100%;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  width: 100%; display: flex; align-items: flex-start; gap: 12px;
   padding: 14px 16px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  text-align: left;
+  border: none; background: none; cursor: pointer; text-align: left;
   border-bottom: 1px solid #f8fafc;
-  transition: background 0.15s ease;
-  position: relative;
+  transition: background 0.15s ease; position: relative;
 }
+.notif-item:last-child { border-bottom: none; }
+.notif-item:hover { background: #f8fafc; }
+.notif-item.nao-lida { background: #f0fdf4; }
+.notif-item.nao-lida:hover { background: #dcfce7; }
+.notif-item.sem-link { cursor: default; }
 
-.notif-item:last-child {
-  border-bottom: none;
-}
-
-.notif-item:hover {
-  background: #f8fafc;
-}
-
-.notif-item.nao-lida {
-  background: #f0fdf4;
-}
-
-.notif-item.nao-lida:hover {
-  background: #dcfce7;
-}
-
-.notif-item.sem-link {
-  cursor: default;
-}
-
-/* Ícone */
 .notif-icone {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
+.notif-icone svg { width: 18px; height: 18px; }
+.icone-exclusao { background: #fef2f2; color: #ef4444; }
+.icone-geral    { background: #eff6ff; color: #3b82f6; }
 
-.notif-icone svg {
-  width: 18px;
-  height: 18px;
-}
-
-.icone-exclusao {
-  background: #fef2f2;
-  color: #ef4444;
-}
-
-.icone-geral {
-  background: #eff6ff;
-  color: #3b82f6;
-}
-
-/* Corpo */
-.notif-corpo {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
+.notif-corpo { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .notif-titulo-item {
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-family:'Inter',sans-serif; font-size:13px; font-weight:700; color:#0f172a;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-
 .notif-msg {
-  font-family: 'Inter', sans-serif;
-  font-size: 12.5px;
-  color: #475569;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  transition: -webkit-line-clamp 0s;
+  font-family:'Inter',sans-serif; font-size:12.5px; color:#475569; line-height:1.4;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
 }
+.notif-tempo { font-family:'Inter',sans-serif; font-size:11px; color:#94a3b8; margin-top:2px; }
 
-.notif-item.expandida .notif-msg {
-  -webkit-line-clamp: unset;
-  display: block;
-  overflow: visible;
-}
-
-.notif-item.sem-link:not(.expandida):hover .notif-msg {
-  color: #334155;
-}
-
-.notif-tempo {
-  font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  color: #94a3b8;
-  margin-top: 2px;
-}
-
-/* Dot de não lida */
 .notif-dot {
-  width: 8px;
-  height: 8px;
-  background: #059669;
-  border-radius: 50%;
-  flex-shrink: 0;
-  margin-top: 4px;
+  width: 8px; height: 8px; background: #059669; border-radius: 50%;
+  flex-shrink: 0; margin-top: 4px;
 }
 
-/* Estado vazio / loading */
 .painel-estado {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 36px 16px;
-  color: #94a3b8;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; padding: 36px 16px; color: #94a3b8;
 }
-
-.painel-estado p {
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  margin: 0;
-}
-
-.empty-icon {
-  width: 36px;
-  height: 36px;
-  color: #cbd5e1;
-}
+.painel-estado p { font-family:'Inter',sans-serif; font-size:13px; margin:0; }
+.empty-icon { width:36px; height:36px; color:#cbd5e1; }
 
 .spinner-sm {
-  width: 24px;
-  height: 24px;
-  border: 2px solid #e2e8f0;
-  border-top-color: #059669;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+  width:24px; height:24px;
+  border: 2px solid #e2e8f0; border-top-color:#059669;
+  border-radius:50%; animation:spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Painel fade */
+.notif-fade-enter-active, .notif-fade-leave-active { transition:opacity 0.15s ease, transform 0.15s ease; }
+.notif-fade-enter-from, .notif-fade-leave-to { opacity:0; transform:translateY(-4px); }
+
+/* ── Modal ── */
+.notif-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,23,42,0.5);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.notif-modal {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  box-shadow: 0 20px 60px -10px rgba(15,23,42,0.25);
+  width: 100%; max-width: 480px;
+  overflow: hidden;
 }
 
-/* Transição */
-.notif-fade-enter-active,
-.notif-fade-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+.notif-modal-head {
+  display: flex; align-items: center; gap: 14px;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.notif-fade-enter-from,
-.notif-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
+.notif-icone-modal {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.notif-icone-modal svg { width: 22px; height: 22px; }
+
+.notif-modal-meta {
+  flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0;
+}
+.notif-modal-titulo {
+  font-family:'Inter',sans-serif; font-size:15px; font-weight:700; color:#0f172a; line-height:1.3;
+}
+.notif-modal-tempo {
+  font-family:'Inter',sans-serif; font-size:12px; color:#94a3b8;
+}
+
+.notif-modal-fechar {
+  width: 32px; height: 32px;
+  border: none; background: none; border-radius: 8px;
+  color: #94a3b8; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.notif-modal-fechar svg { width: 16px; height: 16px; }
+.notif-modal-fechar:hover { background: #f1f5f9; color: #475569; }
+
+.notif-modal-body { padding: 20px; }
+.notif-modal-msg {
+  font-family:'Inter',sans-serif; font-size:14.5px; color:#475569;
+  line-height: 1.65; margin: 0; white-space: pre-wrap;
+}
+
+/* Modal transition */
+.modal-notif-fade-enter-active { transition:opacity 0.2s ease; }
+.modal-notif-fade-leave-active { transition:opacity 0.18s ease; }
+.modal-notif-fade-enter-from, .modal-notif-fade-leave-to { opacity:0; }
+.modal-notif-fade-enter-active .notif-modal { animation:modal-scale-in 0.2s ease; }
+@keyframes modal-scale-in {
+  from { transform:scale(0.94) translateY(-8px); }
+  to   { transform:scale(1) translateY(0); }
 }
 </style>

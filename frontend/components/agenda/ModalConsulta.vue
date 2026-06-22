@@ -1,6 +1,7 @@
 <script setup>
-import { ref, watch, reactive, computed } from 'vue'
+import { ref, watch, reactive, computed, nextTick } from 'vue'
 import api from '../../services/api'
+import { useCurrentUser } from '~/composables/useCurrentUser'
 
 const props = defineProps({
   aberto:    { type: Boolean },
@@ -10,7 +11,11 @@ const props = defineProps({
   isAdmin:   { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['fechar', 'salvar', 'excluido'])
+const emit = defineEmits(['fechar', 'salvar', 'excluido', 'iniciar'])
+
+const router = useRouter()
+const { isAdmin: isAdminUser, usuario } = useCurrentUser()
+const isMedico = usuario?.cargo === 'medico'
 
 const listaPacientes    = ref([])
 const listaProfissionais = ref([])
@@ -19,6 +24,9 @@ const conveniosDoPaciente = ref([])
 const carregando  = ref(false)
 const salvando    = ref(false)
 const editando    = ref(false)
+
+const buscaPaciente = ref('')
+const pacienteFoco  = ref(false)
 
 const telaExcluir   = ref(false)
 const justificativa = ref('')
@@ -35,12 +43,26 @@ const localForm = reactive({
   id: null, pacienteId: '', profissionalId: '',
   dataInicio: '', dataFim: '', procedimento: 'CONSULTA',
   convenioId: '', sala: '', observacoes: '',
+  status: '', valor: '',
 })
 
 const modoEdicao = computed(() => !!localForm.id)
-const conveniosDisponiveis = computed(() =>
-  conveniosDoPaciente.value.length > 0 ? conveniosDoPaciente.value : listaConvenios.value
-)
+
+const podeIniciarConsulta = computed(() => {
+  if (localForm.status !== 'AGENDADA' && localForm.status !== 'CONFIRMADA') return false
+  if (!localForm.dataInicio) return false
+  if (isAdminUser || isMedico) return true
+  const agora  = Date.now()
+  const inicio = new Date(localForm.dataInicio).getTime()
+  return agora >= inicio - 30 * 60 * 1000 && agora <= inicio + 4 * 60 * 60 * 1000
+})
+const conveniosDisponiveis = computed(() => listaConvenios.value)
+
+const pacientesFiltrados = computed(() => {
+  const q = buscaPaciente.value.trim().toLowerCase()
+  if (!q) return listaPacientes.value.slice(0, 8)
+  return listaPacientes.value.filter(p => p.nome.toLowerCase().includes(q)).slice(0, 8)
+})
 
 const pacienteNome = computed(() =>
   listaPacientes.value.find(p => p.id === Number(localForm.pacienteId))?.nome || '—'
@@ -86,6 +108,25 @@ function formatarExibicao(valor) {
     weekday: 'long', day: '2-digit', month: 'long',
     year: 'numeric', hour: '2-digit', minute: '2-digit'
   })
+}
+
+function formatarPeriodo(inicio, fim) {
+  if (!inicio) return '—'
+  const di = new Date(inicio)
+  if (isNaN(di.getTime())) return '—'
+  const df = fim ? new Date(fim) : null
+  const data = di.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+  const hi   = di.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  if (df && !isNaN(df.getTime())) {
+    const hf = df.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    return `${data} • ${hi} – ${hf}`
+  }
+  return `${data} • ${hi}`
+}
+
+function formatarValor(v) {
+  if (v == null || v === '') return null
+  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 function imprimirFicha() {
@@ -146,8 +187,23 @@ function imprimirFicha() {
 async function carregarConveniosDoPaciente(id) {
   if (!id) { conveniosDoPaciente.value = []; return }
   try {
-    conveniosDoPaciente.value = (await api.get(`/pacientes/${id}/convenios`)).data
+    const { data } = await api.get(`/pacientes/${id}/convenios`)
+    conveniosDoPaciente.value = data
+    // Auto-select patient's main convenio if field is empty
+    if (data.length > 0 && !localForm.convenioId) {
+      const item = data[0]
+      const convenioId = item.convenioId ?? item.id
+      if (listaConvenios.value.some(c => c.id === convenioId)) {
+        localForm.convenioId = convenioId
+      }
+    }
   } catch { conveniosDoPaciente.value = [] }
+}
+
+function selecionarPaciente(p) {
+  localForm.pacienteId = p.id
+  buscaPaciente.value  = p.nome
+  pacienteFoco.value   = false
 }
 
 async function carregarDados() {
@@ -180,12 +236,15 @@ watch(() => props.aberto, async (aberto) => {
   localForm.id             = f.id || null
   localForm.pacienteId     = f.pacienteId    || ''
   localForm.profissionalId = f.profissionalId || ''
+  buscaPaciente.value      = listaPacientes.value.find(p => p.id === Number(f.pacienteId))?.nome || ''
   localForm.dataInicio     = formatarParaInput(f.dataInicio) || formatarParaInput(agora)
   localForm.dataFim        = formatarParaInput(f.dataFim)    || formatarParaInput(em30min)
   localForm.procedimento   = f.procedimento || 'CONSULTA'
   localForm.convenioId     = f.convenioId   || ''
   localForm.sala           = f.sala         || ''
   localForm.observacoes    = f.observacoes  || ''
+  localForm.status         = f.status       || ''
+  localForm.valor          = f.valor != null ? String(f.valor) : ''
   conveniosDoPaciente.value = []
   if (localForm.pacienteId) await carregarConveniosDoPaciente(localForm.pacienteId)
 })
@@ -196,11 +255,39 @@ watch(() => localForm.pacienteId, async (novo, anterior) => {
   if (anterior && novo !== anterior) localForm.convenioId = ''
 })
 
+watch(buscaPaciente, (v) => {
+  const nomeAtual = listaPacientes.value.find(p => p.id === Number(localForm.pacienteId))?.nome || ''
+  if (v !== nomeAtual) localForm.pacienteId = ''
+})
+
+watch([() => localForm.profissionalId, () => localForm.procedimento], ([profId, proc]) => {
+  if (!props.aberto || localForm.id) return // só preenche em nova consulta
+  const prof = listaProfissionais.value.find(p => p.id === Number(profId))
+  if (!prof) return
+  const v = proc === 'RETORNO' ? prof.valorRetorno : prof.valorConsulta
+  if (v != null) localForm.valor = String(v)
+})
+
 function confirmar() {
+  if (!localForm.pacienteId) {
+    alert('Selecione um paciente da lista.')
+    return
+  }
   const convenio = conveniosDisponiveis.value.find(c => c.id === Number(localForm.convenioId))
   salvando.value = true
   emit('salvar', { ...localForm, convenio: convenio?.nome || '' })
   salvando.value = false
+}
+
+async function handleIniciar() {
+  try {
+    await api.patch(`/consultas/${localForm.id}/status`, { status: 'EM_ANDAMENTO' })
+    emit('fechar')
+    await router.push(`/consultas/${localForm.id}/atendimento`)
+  } catch {
+    // emit handled by parent
+    emit('iniciar', { id: localForm.id })
+  }
 }
 
 function abrirExcluir() {
@@ -282,13 +369,8 @@ async function enviarSolicitacao() {
 
         <div class="detail-group">
           <div class="detail-item">
-            <span class="detail-label">Início</span>
-            <span class="detail-value detail-value--date">{{ formatarExibicao(localForm.dataInicio) }}</span>
-          </div>
-          <div class="detail-divider"></div>
-          <div class="detail-item">
-            <span class="detail-label">Término</span>
-            <span class="detail-value detail-value--date">{{ formatarExibicao(localForm.dataFim) }}</span>
+            <span class="detail-label">Data / Horário</span>
+            <span class="detail-value detail-value--date">{{ formatarPeriodo(localForm.dataInicio, localForm.dataFim) }}</span>
           </div>
         </div>
 
@@ -304,6 +386,13 @@ async function enviarSolicitacao() {
             <span class="detail-label">Convênio</span>
             <span class="detail-value">{{ convenioSelecionado?.nome || 'Particular' }}</span>
           </div>
+          <template v-if="localForm.valor">
+            <div class="detail-divider"></div>
+            <div class="detail-item">
+              <span class="detail-label">Valor</span>
+              <span class="detail-value detail-valor">{{ formatarValor(localForm.valor) }}</span>
+            </div>
+          </template>
           <template v-if="localForm.sala">
             <div class="detail-divider"></div>
             <div class="detail-item">
@@ -336,12 +425,18 @@ async function enviarSolicitacao() {
               </svg>
               Imprimir ficha
             </button>
-            <button type="button" class="btn-salvar" @click="editando = true">
+            <button type="button" class="btn-editar" @click="editando = true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
               Editar
+            </button>
+            <button v-if="podeIniciarConsulta" type="button" class="btn-iniciar-atend" @click="handleIniciar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/>
+              </svg>
+              Iniciar Atendimento
             </button>
           </div>
         </div>
@@ -354,10 +449,33 @@ async function enviarSolicitacao() {
           <div class="form-grid-2">
             <div class="field-group">
               <label>Paciente <span class="req">*</span></label>
-              <select v-model="localForm.pacienteId" class="field-input" required :disabled="carregando">
-                <option value="" disabled>Selecione...</option>
-                <option v-for="p in listaPacientes" :key="p.id" :value="p.id">{{ p.nome }}</option>
-              </select>
+              <div class="ta-wrap">
+                <svg class="ta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                  v-model="buscaPaciente"
+                  class="field-input ta-input"
+                  :placeholder="carregando ? 'Carregando...' : 'Buscar paciente...'"
+                  :disabled="carregando"
+                  autocomplete="off"
+                  @focus="pacienteFoco = true"
+                  @blur="setTimeout(() => { pacienteFoco = false }, 180)"
+                />
+                <span v-if="localForm.pacienteId" class="ta-check">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <ul v-if="pacienteFoco && pacientesFiltrados.length" class="ta-dd">
+                  <li
+                    v-for="p in pacientesFiltrados"
+                    :key="p.id"
+                    class="ta-item"
+                    :class="{ 'ta-item--active': p.id === Number(localForm.pacienteId) }"
+                    @mousedown.prevent="selecionarPaciente(p)"
+                  >
+                    <span class="ta-av">{{ p.nome.charAt(0).toUpperCase() }}</span>
+                    <span class="ta-nome">{{ p.nome }}</span>
+                  </li>
+                </ul>
+              </div>
             </div>
             <div class="field-group">
               <label>Profissional <span class="req">*</span></label>
@@ -399,9 +517,15 @@ async function enviarSolicitacao() {
             </div>
           </div>
 
-          <div class="field-group">
-            <label>Sala / Consultório</label>
-            <input type="text" v-model="localForm.sala" class="field-input" placeholder="Ex: Sala 3, Bloco B" />
+          <div class="form-grid-2">
+            <div class="field-group">
+              <label>Valor (R$)</label>
+              <input type="number" v-model="localForm.valor" class="field-input" step="0.01" min="0" placeholder="0,00" />
+            </div>
+            <div class="field-group">
+              <label>Sala / Consultório</label>
+              <input type="text" v-model="localForm.sala" class="field-input" placeholder="Ex: Sala 3, Bloco B" />
+            </div>
           </div>
 
           <div class="field-group">
@@ -766,6 +890,28 @@ async function enviarSolicitacao() {
 .btn-salvar:hover:not(:disabled) { background: #047857; }
 .btn-salvar:disabled { opacity: 0.6; cursor: not-allowed; }
 
+.btn-editar {
+  display: flex; align-items: center; gap: 7px;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 10px 16px; font-size: 13.5px; font-weight: 600;
+  font-family: 'Inter', sans-serif; color: #475569;
+  cursor: pointer; transition: all 0.15s;
+}
+.btn-editar:hover { background: #f1f5f9; }
+
+.btn-iniciar-atend {
+  display: flex; align-items: center; gap: 7px;
+  background: #059669; border: none; border-radius: 8px;
+  padding: 10px 20px; font-size: 13.5px; font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif; color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.28);
+  transition: all 0.15s;
+}
+.btn-iniciar-atend:hover { background: #047857; box-shadow: 0 6px 18px rgba(5,150,105,.38); transform: translateY(-1px); }
+
+.detail-valor { color: #059669 !important; font-weight: 700 !important; }
+
 /* Tela de exclusão */
 .tela-exclusao {
   display: flex;
@@ -809,4 +955,82 @@ async function enviarSolicitacao() {
 }
 .btn-excluir-confirmar:hover:not(:disabled) { background: #b91c1c; }
 .btn-excluir-confirmar:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Patient typeahead ── */
+.ta-wrap {
+  position: relative;
+}
+
+.ta-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ta-input {
+  padding-left: 36px !important;
+  padding-right: 32px !important;
+}
+
+.ta-check {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #059669;
+  pointer-events: none;
+}
+
+.ta-dd {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.ta-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.ta-item:hover, .ta-item--active { background: #f0fdf4; }
+
+.ta-av {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  flex-shrink: 0;
+}
+
+.ta-nome {
+  font-size: 13.5px;
+  color: #0f172a;
+  font-weight: 500;
+}
 </style>

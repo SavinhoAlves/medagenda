@@ -119,7 +119,7 @@ const toast = useToast()
 
 definePageMeta({
   layout: 'dashboard',
-  middleware: 'auth'
+  middleware: ['auth', 'apenas-admin']
 })
 
 useHead({ title: 'Solicitações de Exclusão' })

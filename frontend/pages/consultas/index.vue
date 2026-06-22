@@ -1,18 +1,21 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import api from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
 
 definePageMeta({
   layout: 'dashboard',
-  middleware: 'auth'
+  middleware: ['auth', 'medico']
 })
 
-useHead({ title: 'Consultas' })
+useHead({ title: 'Minhas Consultas' })
 
 const consultas = ref([])
 const carregando = ref(true)
 const { listarConsultas } = useConsultas()
-const toast = useToast()
+const toast    = useToast()
+const authStore = useAuthStore()
+const cargo     = computed(() => authStore.usuario?.cargo)
 
 // --- Modal detalhes ---
 const exibirModalDetalhes = ref(false)
@@ -25,6 +28,20 @@ function abrirDetalhes(consulta) {
 function fecharDetalhes() { exibirModalDetalhes.value = false }
 
 // --- Cancelar ---
+const router = useRouter()
+const iniciando = ref(null)
+
+async function iniciarAtendimento(consulta) {
+  try {
+    iniciando.value = consulta.id
+    await api.patch(`/consultas/${consulta.id}/status`, { status: 'EM_ANDAMENTO' })
+    await router.push(`/consultas/${consulta.id}/atendimento`)
+  } catch {
+    toast.erro('Erro ao iniciar atendimento.')
+    iniciando.value = null
+  }
+}
+
 const cancelando = ref(false)
 const { confirmar } = useConfirm()
 
@@ -47,6 +64,36 @@ async function cancelar(consulta) {
   } finally {
     cancelando.value = false
   }
+}
+
+const statusLabels = {
+  AGENDADA:     'Agendada',
+  CONFIRMADA:   'Confirmada',
+  EM_ANDAMENTO: 'Em andamento',
+  FINALIZADA:   'Finalizada',
+  CANCELADA:    'Cancelada',
+  FALTOU:       'Faltou',
+}
+
+function podeIniciar(consulta) {
+  if (consulta.status !== 'AGENDADA' && consulta.status !== 'CONFIRMADA') return false
+  if (!consulta.dataInicio) return false
+  // Admin e médico podem iniciar a qualquer hora
+  if (cargo.value === 'admin' || cargo.value === 'medico') return true
+  // Demais perfis: janela de 30 min antes até 4h depois
+  const agora  = Date.now()
+  const inicio = new Date(consulta.dataInicio).getTime()
+  return agora >= inicio - 30 * 60 * 1000 && agora <= inicio + 4 * 60 * 60 * 1000
+}
+
+function tempoParaIniciar(consulta) {
+  if (!consulta.dataInicio) return null
+  const inicio = new Date(consulta.dataInicio).getTime()
+  const diff   = inicio - Date.now() - 30 * 60 * 1000
+  if (diff <= 0) return null
+  const h = Math.floor(diff / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  return h > 0 ? `em ${h}h${m > 0 ? ` ${m}min` : ''}` : `em ${m}min`
 }
 
 function formatarData(valor) {
@@ -74,8 +121,8 @@ onMounted(carregar)
 
     <div class="page-header">
       <div>
-        <h1>Consultas</h1>
-        <p>Histórico e agenda de atendimentos</p>
+        <h1>Minhas Consultas</h1>
+        <p>Histórico e gerenciamento dos seus atendimentos</p>
       </div>
       <NuxtLink to="/agenda" class="new-button">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -122,6 +169,39 @@ onMounted(carregar)
             </td>
             <td class="text-right">
               <div class="acoes">
+                <!-- Iniciar: só aparece na janela de horário permitida -->
+                <button
+                  v-if="podeIniciar(consulta)"
+                  class="btn-iniciar"
+                  :disabled="iniciando === consulta.id"
+                  @click="iniciarAtendimento(consulta)"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/>
+                  </svg>
+                  {{ iniciando === consulta.id ? 'Iniciando...' : 'Iniciar' }}
+                </button>
+
+                <!-- Agendada/Confirmada fora da janela: mostra quando libera -->
+                <span
+                  v-else-if="(consulta.status === 'AGENDADA' || consulta.status === 'CONFIRMADA') && tempoParaIniciar(consulta)"
+                  class="badge-horario"
+                  :title="`Disponível a partir de 30 min antes do horário marcado`"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" width="12" height="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  {{ tempoParaIniciar(consulta) }}
+                </span>
+
+                <!-- Em andamento: botão continuar -->
+                <NuxtLink
+                  v-else-if="consulta.status === 'EM_ANDAMENTO'"
+                  :to="`/consultas/${consulta.id}/atendimento`"
+                  class="btn-continuar"
+                >
+                  Continuar
+                </NuxtLink>
                 <button class="btn-detalhe" @click="abrirDetalhes(consulta)">
                   <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -147,49 +227,102 @@ onMounted(carregar)
 
     <!-- Modal: Detalhes da consulta -->
     <div v-if="exibirModalDetalhes" class="modal-overlay" @click.self="fecharDetalhes">
-      <div class="modal-container">
-        <div class="modal-header">
-          <h2>Detalhes da Consulta #{{ consultaSelecionada?.id }}</h2>
-          <button class="btn-fechar-modal" @click="fecharDetalhes">&times;</button>
-        </div>
-        <div class="modal-body" v-if="consultaSelecionada">
-          <div class="detalhe-grid">
-            <div class="detalhe-item">
-              <span class="detalhe-label">Paciente</span>
-              <strong class="detalhe-valor">{{ consultaSelecionada.paciente?.nome || '—' }}</strong>
-            </div>
-            <div class="detalhe-item">
-              <span class="detalhe-label">Profissional</span>
-              <strong class="detalhe-valor">{{ consultaSelecionada.profissional?.nome || '—' }}</strong>
-            </div>
-            <div class="detalhe-item">
-              <span class="detalhe-label">Especialidade</span>
-              <strong class="detalhe-valor highlight">{{ consultaSelecionada.profissional?.especialidade?.nome || '—' }}</strong>
-            </div>
-            <div class="detalhe-item">
-              <span class="detalhe-label">Data e Hora</span>
-              <strong class="detalhe-valor">{{ formatarData(consultaSelecionada.dataInicio || consultaSelecionada.dataConsulta) }}</strong>
-            </div>
-            <div class="detalhe-item">
-              <span class="detalhe-label">Status</span>
-              <span class="badge-status" :class="consultaSelecionada.status?.toLowerCase()">{{ consultaSelecionada.status || 'AGENDADA' }}</span>
-            </div>
-            <div v-if="consultaSelecionada.valor" class="detalhe-item">
-              <span class="detalhe-label">Valor</span>
-              <strong class="detalhe-valor">R$ {{ consultaSelecionada.valor }}</strong>
-            </div>
-            <div v-if="consultaSelecionada.observacoes" class="detalhe-item span-2">
-              <span class="detalhe-label">Observações</span>
-              <strong class="detalhe-valor">{{ consultaSelecionada.observacoes }}</strong>
+      <div class="modal-container modal-detalhes" v-if="consultaSelecionada">
+
+        <!-- Cabeçalho com perfil -->
+        <div class="md-header">
+          <div class="md-avatar">{{ (consultaSelecionada.paciente?.nome || 'P').charAt(0).toUpperCase() }}</div>
+          <div class="md-header-info">
+            <h2 class="md-nome">{{ consultaSelecionada.paciente?.nome || '—' }}</h2>
+            <div class="md-sub">
+              <span class="badge-status" :class="consultaSelecionada.status?.toLowerCase()">
+                {{ statusLabels[consultaSelecionada.status] || consultaSelecionada.status }}
+              </span>
+              <span class="md-id">#{{ consultaSelecionada.id }}</span>
             </div>
           </div>
-          <div class="modal-footer">
-            <button class="btn-cancelar-modal" @click="fecharDetalhes">Fechar</button>
-            <NuxtLink :to="`/consultas/${consultaSelecionada.id}`" class="btn-ver-pagina" @click="fecharDetalhes">
-              Abrir página completa
+          <button class="md-fechar" @click="fecharDetalhes" title="Fechar">
+            <svg viewBox="0 0 24 24" fill="none" width="16" height="16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Corpo -->
+        <div class="md-body">
+
+          <!-- Bloco: Consulta -->
+          <p class="md-section-label">Agendamento</p>
+          <div class="md-grid">
+            <div class="md-field">
+              <span class="md-label">Data e Hora</span>
+              <strong class="md-valor">{{ formatarData(consultaSelecionada.dataInicio || consultaSelecionada.dataConsulta) }}</strong>
+            </div>
+            <div class="md-field" v-if="consultaSelecionada.valor">
+              <span class="md-label">Valor</span>
+              <strong class="md-valor">R$ {{ Number(consultaSelecionada.valor).toFixed(2) }}</strong>
+            </div>
+            <div class="md-field" v-if="consultaSelecionada.sala">
+              <span class="md-label">Sala</span>
+              <strong class="md-valor">{{ consultaSelecionada.sala }}</strong>
+            </div>
+          </div>
+
+          <!-- Bloco: Profissional -->
+          <p class="md-section-label">Profissional</p>
+          <div class="md-prof-card">
+            <div class="md-prof-avatar">{{ (consultaSelecionada.profissional?.nome || 'P').charAt(0).toUpperCase() }}</div>
+            <div>
+              <p class="md-prof-nome">{{ consultaSelecionada.profissional?.nome || '—' }}</p>
+              <p class="md-prof-esp">{{ consultaSelecionada.profissional?.especialidade?.nome || 'Sem especialidade' }}</p>
+            </div>
+          </div>
+
+          <!-- Bloco: Observações -->
+          <template v-if="consultaSelecionada.observacoes">
+            <p class="md-section-label">Observações</p>
+            <p class="md-obs">{{ consultaSelecionada.observacoes }}</p>
+          </template>
+
+          <!-- Aviso de horário quando não pode iniciar ainda -->
+          <div
+            v-if="(consultaSelecionada.status === 'AGENDADA' || consultaSelecionada.status === 'CONFIRMADA') && tempoParaIniciar(consultaSelecionada)"
+            class="md-aviso"
+          >
+            <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            O atendimento estará disponível {{ tempoParaIniciar(consultaSelecionada) }} (30 min antes do horário)
+          </div>
+
+        </div>
+
+        <!-- Rodapé -->
+        <div class="md-footer">
+          <button class="md-btn-fechar" @click="fecharDetalhes">Fechar</button>
+          <div class="md-footer-right">
+            <button
+              v-if="podeIniciar(consultaSelecionada)"
+              class="md-btn-iniciar"
+              :disabled="iniciando === consultaSelecionada.id"
+              @click="iniciarAtendimento(consultaSelecionada)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/>
+              </svg>
+              {{ iniciando === consultaSelecionada.id ? 'Iniciando...' : 'Iniciar Atendimento' }}
+            </button>
+            <NuxtLink
+              v-else-if="consultaSelecionada.status === 'EM_ANDAMENTO'"
+              :to="`/consultas/${consultaSelecionada.id}/atendimento`"
+              class="md-btn-continuar"
+              @click="fecharDetalhes"
+            >
+              Continuar Atendimento
             </NuxtLink>
           </div>
         </div>
+
       </div>
     </div>
 
@@ -232,41 +365,222 @@ onMounted(carregar)
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .acoes { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.btn-iniciar { display: flex; align-items: center; gap: 6px; background: #059669; border: none; color: #fff; padding: 7px 13px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; box-shadow: 0 2px 8px rgba(5,150,105,.2); }
+.btn-iniciar:hover:not(:disabled) { background: #047857; box-shadow: 0 4px 12px rgba(5,150,105,.3); }
+.btn-iniciar:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-continuar { display: flex; align-items: center; gap: 6px; background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.3); color: #d97706; padding: 7px 13px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; text-decoration: none; }
+.btn-continuar:hover { background: rgba(245,158,11,.15); border-color: rgba(245,158,11,.5); }
 .btn-detalhe { display: flex; align-items: center; gap: 6px; background: none; border: 1px solid #cbd5e1; color: #475569; padding: 7px 13px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; }
 .btn-detalhe:hover { background: #f0fdf4; border-color: #6ee7b7; color: #059669; }
 .btn-cancelar-consulta { display: flex; align-items: center; gap: 6px; background: none; border: 1px solid #fca5a5; color: #dc2626; padding: 7px 13px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif; }
 .btn-cancelar-consulta:hover { background: #fef2f2; border-color: #f87171; }
 
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(15,23,42,.4); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 999; }
-.modal-container { background: #fff; border-radius: 16px; width: 100%; max-width: 560px; box-shadow: 0 20px 25px -5px rgba(0,0,0,.1); overflow: hidden; animation: aparecer .2s ease-out; }
-.modal-container.modal-sm { max-width: 420px; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
-.modal-header h2 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; font-weight: 700; color: #0f172a; margin: 0; }
-.btn-fechar-modal { background: none; border: none; font-size: 24px; color: #94a3b8; cursor: pointer; line-height: 1; }
-.btn-fechar-modal:hover { color: #475569; }
-.modal-body { padding: 24px; }
-@keyframes aparecer { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
+.badge-horario { display: inline-flex; align-items: center; gap: 5px; background: #fefce8; border: 1px solid #fde68a; color: #92400e; padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: default; }
 
-.detalhe-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-.detalhe-item { display: flex; flex-direction: column; gap: 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; }
-.detalhe-item.span-2 { grid-column: span 2; }
-.detalhe-label { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .5px; }
-.detalhe-valor { font-size: 14px; font-weight: 600; color: #0f172a; }
-.detalhe-valor.highlight { color: #059669; }
+/* ── Modal overlay ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.45); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 999; padding: 16px; }
 
-.modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
-.btn-cancelar-modal { background: #f1f5f9; color: #475569; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.2s; }
-.btn-cancelar-modal:hover { background: #e2e8f0; }
-.btn-cancelar-modal:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-ver-pagina { background: #059669; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif; text-decoration: none; display: flex; align-items: center; transition: background 0.2s; }
-.btn-ver-pagina:hover { background: #047857; }
-.btn-confirmar-cancelar { background: #dc2626; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; }
-.btn-confirmar-cancelar:hover { background: #b91c1c; }
-.btn-confirmar-cancelar:disabled { opacity: 0.6; cursor: not-allowed; }
+.modal-container { background: #fff; border-radius: 20px; width: 100%; max-width: 500px; box-shadow: 0 24px 48px -8px rgba(0,0,0,.18); overflow: hidden; animation: aparecer .2s ease-out; }
 
-.excluir-content { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 8px 0 24px; gap: 12px; }
-.excluir-icon { width: 52px; height: 52px; border-radius: 14px; background: #fef2f2; color: #dc2626; display: flex; align-items: center; justify-content: center; }
-.excluir-icon svg { width: 26px; height: 26px; }
-.excluir-texto { font-size: 15px; color: #1e293b; line-height: 1.5; margin: 0; }
-.excluir-aviso { font-size: 13px; color: #94a3b8; margin: 0; }
+@keyframes aparecer { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* ── Modal Detalhes ── */
+.md-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 100%);
+}
+
+.md-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.md-header-info { flex: 1; min-width: 0; }
+
+.md-nome {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.md-sub { display: flex; align-items: center; gap: 8px; }
+
+.md-id { font-size: 12px; color: #94a3b8; font-family: monospace; }
+
+.md-fechar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(0,0,0,.05);
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all .13s;
+}
+.md-fechar:hover { background: #fee2e2; color: #dc2626; }
+
+.md-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+
+.md-section-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.md-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+
+.md-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 11px 13px;
+}
+
+.md-label { font-size: 10.5px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; }
+
+.md-valor { font-size: 13.5px; font-weight: 700; color: #0f172a; margin: 0; }
+
+.md-prof-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.md-prof-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(5,150,105,.1);
+  color: #059669;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.md-prof-nome { font-size: 14px; font-weight: 600; color: #0f172a; margin: 0 0 2px; }
+.md-prof-esp  { font-size: 12px; color: #059669; font-weight: 500; margin: 0; }
+
+.md-obs {
+  font-size: 13.5px;
+  color: #475569;
+  line-height: 1.6;
+  margin: 0;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.md-aviso {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fefce8;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #92400e;
+}
+
+.md-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px 22px;
+  border-top: 1px solid #f1f5f9;
+  background: #fafafa;
+}
+
+.md-footer-right { display: flex; gap: 8px; align-items: center; }
+
+.md-btn-fechar {
+  background: none;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  padding: 9px 18px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all .13s;
+}
+.md-btn-fechar:hover { background: #f1f5f9; }
+
+.md-btn-iniciar {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #059669;
+  border: none;
+  color: #fff;
+  padding: 9px 20px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(5,150,105,.28);
+  transition: all .15s;
+}
+.md-btn-iniciar:hover:not(:disabled) { background: #047857; box-shadow: 0 6px 18px rgba(5,150,105,.35); transform: translateY(-1px); }
+.md-btn-iniciar:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; transform: none; }
+
+.md-btn-continuar {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(245,158,11,.1);
+  border: 1px solid rgba(245,158,11,.4);
+  color: #d97706;
+  padding: 9px 18px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all .13s;
+}
+.md-btn-continuar:hover { background: rgba(245,158,11,.18); }
 </style>

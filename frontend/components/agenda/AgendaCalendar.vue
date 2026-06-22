@@ -1,10 +1,11 @@
 <script setup>
-import { ref, watch, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, watch, computed, nextTick, onMounted } from 'vue'
 import FullCalendar from '@fullcalendar/vue3'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import ptBrLocale from '@fullcalendar/core/locales/pt-br'
+import { useAgendaConfig } from '@/composables/useAgendaConfig'
 
 const props = defineProps({
   eventos: { type: Array, required: true, default: () => [] },
@@ -15,6 +16,7 @@ const emit = defineEmits(['novo', 'mover', 'redimensionar', 'editar'])
 
 const calendarRef = ref(null)
 const toast = useToast()
+const { slotMinTime, slotMaxTime, formatoHora, load: loadConfig } = useAgendaConfig()
 
 const eventosPorDia = computed(() => {
   const mapa = {}
@@ -31,10 +33,8 @@ function atualizarBadges() {
   const api = calendarRef.value.getApi()
   if (api.view.type !== 'dayGridMonth') return
 
-  // Remove badges anteriores
   document.querySelectorAll('.day-badge-inject').forEach(el => el.remove())
 
-  // Injeta badge em cada dia com eventos
   Object.entries(eventosPorDia.value).forEach(([dia, count]) => {
     const cell = document.querySelector(`td.fc-daygrid-day[data-date="${dia}"]`)
     if (!cell) return
@@ -55,18 +55,8 @@ function formatLocal(date) {
 
 function podeSelecionar(info) {
   if (props.isAdmin) return true
-  if (info.start < new Date()) {
-    // selectAllow não expõe info.view — lê da API do calendário
-    const viewType = calendarRef.value?.getApi()?.view?.type
-    if (viewType !== 'dayGridMonth') {
-      toast.erro('Não é permitido agendar em datas passadas.')
-    }
-    return false
-  }
-  return true
+  return info.start >= new Date()
 }
-
-let overlayInterval = null
 
 const calendarOptions = ref({
   plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
@@ -81,33 +71,41 @@ const calendarOptions = ref({
 
   buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana', day: 'Dia' },
 
-  slotMinTime: '06:00:00',
-  slotMaxTime: '22:00:00',
-  allDaySlot: false,
-  editable:   true,
-  selectable: true,
+  height:            'auto',
+  contentHeight:     'auto',
+  expandRows:        false,
+  stickyHeaderDates: true,
 
-  events: props.eventos,
+  slotMinTime:       slotMinTime.value,
+  slotMaxTime:       slotMaxTime.value,
+  scrollTime:        slotMinTime.value,
+  slotDuration:      '00:30:00',
+  slotLabelInterval: '01:00:00',
+  allDaySlot:             false,
+  editable:               true,
+  selectable:             true,
+  nowIndicator:           true,
+  navLinks:               true,
+  forceEventDuration:     true,
+  defaultTimedEventDuration: '01:00:00',
+
+  slotLabelFormat:  { hour: '2-digit', minute: '2-digit', hour12: formatoHora.value === '12h' },
+  eventTimeFormat:  { hour: '2-digit', minute: '2-digit', hour12: formatoHora.value === '12h' },
+  dayHeaderFormat:  { weekday: 'short', day: 'numeric' },
+
+  events: (fetchInfo, successCallback) => {
+    successCallback([...props.eventos])
+  },
 
   datesSet: () => {
-    if (overlayInterval) { clearInterval(overlayInterval); overlayInterval = null }
-    nextTick(() => {
-      atualizarBadges()
-      atualizarOverlaysBloqueados()
-      const calApi = calendarRef.value?.getApi()
-      if (calApi && ['timeGridWeek', 'timeGridDay'].includes(calApi.view.type) && !props.isAdmin) {
-        overlayInterval = setInterval(atualizarOverlaysBloqueados, 60000)
-      }
-    })
+    nextTick(() => atualizarBadges())
   },
 
   dateClick: (info) => {
-    // Mês: navega para o Dia
     if (info.view.type === 'dayGridMonth') {
       calendarRef.value?.getApi().changeView('timeGridDay', info.date)
       return
     }
-    // Semana/Dia: clique simples também abre modal (o select só dispara com arrastar)
     if (!props.isAdmin && info.date < new Date()) {
       toast.erro('Não é permitido agendar em horários passados.')
       return
@@ -117,87 +115,47 @@ const calendarOptions = ref({
   },
 
   selectAllow: podeSelecionar,
-  select:      (info) => emit('novo', info),
+  select: (info) => {
+    emit('novo', {
+      startStr: formatLocal(info.start),
+      endStr:   formatLocal(info.end),
+    })
+  },
   eventClick:  (info) => emit('editar', info.event.extendedProps.consulta),
   eventDrop:   (info) => emit('mover', info),
   eventResize: (info) => emit('redimensionar', info),
 })
 
-watch(() => props.eventos, (novos) => {
-  calendarOptions.value.events = [...novos]
-  if (calendarRef.value) {
-    calendarRef.value.getApi().refetchEvents()
-    nextTick(() => atualizarBadges())
-  }
-}, { deep: true, immediate: true })
+watch(() => props.eventos, () => {
+  if (!calendarRef.value) return
+  calendarRef.value.getApi().refetchEvents()
+  nextTick(() => atualizarBadges())
+}, { deep: true })
 
 watch(() => props.isAdmin, (admin) => {
   calendarOptions.value.selectAllow = admin ? undefined : podeSelecionar
 })
 
-// ── Overlays visuais para bloqueio de datas/horários passados ──
+watch([slotMinTime, slotMaxTime], ([min, max]) => {
+  if (!calendarRef.value) return
+  const api = calendarRef.value.getApi()
+  api.setOption('slotMinTime', min)
+  api.setOption('slotMaxTime', max)
+  api.setOption('scrollTime', min)
+})
 
-const SLOT_MIN = 6 * 60  // 06:00
-const SLOT_MAX = 22 * 60 // 22:00
-
-function calcPastPercent() {
-  const agora = new Date()
-  const min = agora.getHours() * 60 + agora.getMinutes()
-  if (min <= SLOT_MIN) return 0
-  if (min >= SLOT_MAX) return 100
-  return ((min - SLOT_MIN) / (SLOT_MAX - SLOT_MIN)) * 100
-}
-
-function criarOverlay(pct, opacidade) {
-  const el = document.createElement('div')
-  el.className = 'past-overlay-inject'
-  el.style.cssText = `
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: ${pct}%;
-    background: rgba(148, 163, 184, ${opacidade});
-    background-image: repeating-linear-gradient(
-      -45deg,
-      transparent,
-      transparent 6px,
-      rgba(148,163,184,0.08) 6px,
-      rgba(148,163,184,0.08) 8px
-    );
-    cursor: not-allowed;
-    z-index: 1;
-    pointer-events: auto;
-  `
-  el.addEventListener('click', () => {
-    toast.erro('Não é permitido agendar em horários passados.')
-  })
-  return el
-}
-
-function atualizarOverlaysBloqueados() {
-  if (typeof document === 'undefined' || !calendarRef.value || props.isAdmin) return
-  const calApi = calendarRef.value.getApi()
-  if (!['timeGridWeek', 'timeGridDay'].includes(calApi.view.type)) return
-
-  document.querySelectorAll('.past-overlay-inject').forEach(el => el.remove())
-
-  // Dias passados — overlay 100%
-  document.querySelectorAll('.fc-timegrid-col.fc-day-past .fc-timegrid-col-frame').forEach(frame => {
-    frame.appendChild(criarOverlay(100, 0.12))
-  })
-
-  // Hoje — overlay parcial até o horário atual
-  const pct = calcPastPercent()
-  if (pct > 0) {
-    const frameHoje = document.querySelector('.fc-timegrid-col.fc-day-today .fc-timegrid-col-frame')
-    if (frameHoje) frameHoje.appendChild(criarOverlay(pct, 0.08))
-  }
-}
+watch(formatoHora, (fmt) => {
+  if (!calendarRef.value) return
+  const api = calendarRef.value.getApi()
+  const tf = { hour: '2-digit', minute: '2-digit', hour12: fmt === '12h' }
+  api.setOption('slotLabelFormat', tf)
+  api.setOption('eventTimeFormat', tf)
+})
 
 const isMounted = ref(false)
-onMounted(() => { isMounted.value = true })
-
-onUnmounted(() => {
-  if (overlayInterval) clearInterval(overlayInterval)
+onMounted(() => {
+  isMounted.value = true
+  loadConfig()
 })
 </script>
 
@@ -213,59 +171,20 @@ onUnmounted(() => {
 .calendar-wrapper {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 4px 24px rgba(148, 163, 184, 0.08);
 }
 
+/* ── Container ── */
 :deep(.fc) {
   font-family: 'Inter', sans-serif;
-  padding: 20px 24px 24px;
+  padding: 18px 20px 20px;
 }
 
+/* ── Toolbar ── */
 :deep(.fc-toolbar) {
-  margin-bottom: 20px !important;
+  margin-bottom: 16px !important;
   align-items: center;
-}
-
-:deep(.fc-toolbar-title) {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-weight: 800;
-  font-size: 18px !important;
-  color: #0f172a;
-  letter-spacing: -0.4px;
-  text-transform: capitalize;
-}
-
-:deep(.fc-button) {
-  background: #ffffff !important;
-  border: 1px solid #e2e8f0 !important;
-  color: #475569 !important;
-  font-family: 'Inter', sans-serif;
-  font-weight: 600;
-  font-size: 13px;
-  min-height: 36px;
-  padding: 0 14px !important;
-  border-radius: 8px !important;
-  box-shadow: none !important;
-  transition: all 0.15s;
-}
-
-:deep(.fc-button-group) {
-  display: flex !important;
-  gap: 6px !important;
-}
-
-:deep(.fc-button:hover) {
-  background: #f8fafc !important;
-  border-color: #cbd5e1 !important;
-}
-
-:deep(.fc-button-active),
-:deep(.fc-button-primary:not(:disabled).fc-button-active) {
-  background: #059669 !important;
-  border-color: #059669 !important;
-  color: #ffffff !important;
 }
 
 :deep(.fc-toolbar-chunk) {
@@ -274,27 +193,91 @@ onUnmounted(() => {
   align-items: center;
 }
 
-:deep(.fc-prev-button),
-:deep(.fc-next-button) {
-  width: 36px;
-  height: 36px;
-  padding: 0 !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+:deep(.fc-toolbar-title) {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  font-size: 16px !important;
+  color: #1e293b;
+  text-transform: capitalize;
+  letter-spacing: -0.2px;
 }
 
+:deep(.fc-button) {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #64748b !important;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-size: 12.5px;
+  height: 32px;
+  padding: 0 12px !important;
+  border-radius: 7px !important;
+  box-shadow: none !important;
+  transition: background 0.12s, color 0.12s;
+}
+
+:deep(.fc-button:hover) {
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+}
+
+:deep(.fc-button:focus) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+:deep(.fc-button-active),
+:deep(.fc-button-primary:not(:disabled).fc-button-active) {
+  background: #0f172a !important;
+  border-color: #0f172a !important;
+  color: #ffffff !important;
+}
+
+:deep(.fc-button-group) {
+  display: flex !important;
+  gap: 6px !important;
+}
+
+/* View buttons (Mês / Semana / Dia) — wider padding for visual separation */
+:deep(.fc-dayGridMonth-button),
+:deep(.fc-timeGridWeek-button),
+:deep(.fc-timeGridDay-button) {
+  padding: 0 16px !important;
+  letter-spacing: 0.1px;
+}
+
+:deep(.fc-prev-button),
+:deep(.fc-next-button) {
+  width: 32px;
+  height: 32px;
+  padding: 0 !important;
+}
+
+/* ── Cabeçalho das colunas ── */
 :deep(.fc-col-header-cell) {
   background: #f8fafc;
   border-color: #e2e8f0 !important;
-  padding: 10px 0;
+  padding: 8px 0;
 }
 
 :deep(.fc-col-header-cell-cushion) {
-  color: #475569;
-  font-size: 12.5px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
   text-decoration: none !important;
+  text-transform: capitalize;
+}
+
+/* Dia atual: só a cor do texto muda */
+:deep(.fc-col-header-cell.fc-day-today .fc-col-header-cell-cushion) {
+  color: #059669;
+  font-weight: 700;
+}
+
+/* ── Grade ── */
+:deep(.fc-scrollgrid) {
+  border: none !important;
+  border-top: 1px solid #e2e8f0 !important;
 }
 
 :deep(.fc-theme-standard td),
@@ -302,44 +285,68 @@ onUnmounted(() => {
   border-color: #f1f5f9;
 }
 
-:deep(.fc-scrollgrid) {
-  border: none !important;
-  border-top: 1px solid #e2e8f0 !important;
+:deep(.fc-timegrid-slot) {
+  height: 44px;
+}
+
+:deep(.fc-timegrid-slot-minor) {
+  border-top-color: #f8fafc !important;
 }
 
 :deep(.fc-timegrid-slot-label-cushion) {
-  color: #94a3b8;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 500;
+  color: #94a3b8;
+  padding-right: 8px !important;
 }
 
+/* ── Hoje ── */
 :deep(.fc-day-today) {
   background: rgba(5, 150, 105, 0.03) !important;
 }
 
+/* ── Número de dia (visão mês) ── */
+:deep(.fc-daygrid-day-number) {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #475569;
+  text-decoration: none !important;
+  padding: 6px 8px;
+}
+
+:deep(.fc-daygrid-day.fc-day-today .fc-daygrid-day-number) {
+  color: #059669;
+  font-weight: 700;
+}
+
+/* ── Indicador de hora atual ── */
+:deep(.fc-now-indicator-line) {
+  border-color: #e11d48 !important;
+  border-width: 1.5px !important;
+}
+
+:deep(.fc-now-indicator-arrow) {
+  border-top-color: #e11d48 !important;
+  border-bottom-color: #e11d48 !important;
+}
+
+/* ── Eventos ── */
 :deep(.fc-event) {
   cursor: pointer;
   border-radius: 6px;
   border: none !important;
   position: relative;
   z-index: 2;
+  transition: filter 0.12s, transform 0.12s;
 }
 
 :deep(.fc-event:hover) {
-  filter: brightness(0.93);
+  filter: brightness(0.94);
   transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1) !important;
 }
 
-:deep(.fc-event-time) {
-  font-size: 11px;
-  font-weight: 700;
-  opacity: 0.88;
-}
-
-:deep(.fc-event-title) {
-  font-size: 12px;
-  font-weight: 700;
+:deep(.fc-timegrid-event .fc-event-main) {
+  padding: 3px 6px;
 }
 
 :deep(.fc-event-main-frame) {
@@ -348,10 +355,24 @@ onUnmounted(() => {
   gap: 1px;
 }
 
+:deep(.fc-event-time) {
+  font-size: 10.5px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+:deep(.fc-event-title) {
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 :deep(.fc-timegrid-event-short .fc-event-main-frame) {
   flex-direction: row !important;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 
 :deep(.fc-event-resizer-end) {
@@ -359,12 +380,12 @@ onUnmounted(() => {
   height: 5px !important;
   left: 50% !important;
   right: auto !important;
-  bottom: 3px !important;
+  bottom: 2px !important;
   transform: translateX(-50%) !important;
   background: transparent !important;
   border: none !important;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity 0.12s;
 }
 
 :deep(.fc-timegrid-event:hover .fc-event-resizer-end) { opacity: 1; }
@@ -379,12 +400,15 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.5);
 }
 
-/* Dia passado — fundo levemente acinzentado */
-:deep(.fc-day-past) {
-  background: rgba(241, 245, 249, 0.5) !important;
-}
+/* ── Sem área vazia ── */
+:deep(.fc-view-harness),
+:deep(.fc-view-harness-active) { height: auto !important; }
+:deep(.fc-timegrid-body)       { min-height: auto !important; }
+:deep(.fc-scroller)            { overflow-y: auto !important; }
 
-/* Cursor de bloqueio nos dias passados em visão Mês (não-admins) */
+/* ── Dias passados ── */
+:deep(.fc-day-past .fc-daygrid-day-number) { opacity: 0.4; }
+
 .block-past :deep(.fc-dayGridMonth-view .fc-day-past),
 .block-past :deep(.fc-dayGridMonth-view .fc-day-past .fc-daygrid-day-frame),
 .block-past :deep(.fc-dayGridMonth-view .fc-day-past .fc-daygrid-day-top),
@@ -392,49 +416,38 @@ onUnmounted(() => {
   cursor: not-allowed !important;
 }
 
-/* Visão mês — visual de bloqueio nos dias passados */
-.block-past :deep(.fc-dayGridMonth-view .fc-day-past .fc-daygrid-day-frame) {
-  background-image: repeating-linear-gradient(
-    -45deg,
-    transparent,
-    transparent 6px,
-    rgba(148, 163, 184, 0.07) 6px,
-    rgba(148, 163, 184, 0.07) 8px
-  ) !important;
+.block-past :deep(.fc-timeGridWeek-view .fc-timegrid-col.fc-day-past),
+.block-past :deep(.fc-timeGridDay-view  .fc-timegrid-col.fc-day-past) {
+  background: rgba(241, 245, 249, 0.35) !important;
+  cursor: not-allowed;
 }
 
-/* Número do dia em passado — mais apagado */
-.block-past :deep(.fc-dayGridMonth-view .fc-day-past .fc-daygrid-day-number) {
-  color: #cbd5e1 !important;
+.block-past :deep(.fc-timeGridWeek-view .fc-col-header-cell.fc-day-past .fc-col-header-cell-cushion) {
+  opacity: 0.45;
 }
 
-.block-past :deep(.fc-day-past .fc-event) {
-  cursor: pointer !important;
-}
+.block-past :deep(.fc-day-past .fc-event) { cursor: pointer !important; }
 
-/* ── Visão Mês ── */
-
-/* Oculta barras de evento individuais e o link "+mais" */
+/* ── Visão mês ── */
 :deep(.fc-dayGridMonth-view .fc-daygrid-event-harness),
 :deep(.fc-dayGridMonth-view .fc-daygrid-day-bottom) {
   display: none !important;
 }
 
-/* Card do dia inteiro clicável */
 :deep(.fc-dayGridMonth-view .fc-daygrid-day) {
   cursor: pointer;
+  min-height: 80px;
 }
 
 :deep(.fc-dayGridMonth-view .fc-daygrid-day:hover .fc-daygrid-day-frame) {
-  background: rgba(5, 150, 105, 0.03);
+  background: #f8fafc;
 }
 
-/* Badge de contagem injetado via JS */
 :deep(.day-badge-inject) {
   position: absolute;
-  top: 50%;
+  bottom: 6px;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
@@ -442,14 +455,13 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 3px 10px;
+  padding: 2px 9px;
   background: #059669;
   color: #ffffff;
   border-radius: 20px;
   font-family: 'Inter', sans-serif;
   font-size: 11px;
-  font-weight: 700;
-  line-height: 1.4;
+  font-weight: 600;
   white-space: nowrap;
   pointer-events: none;
 }

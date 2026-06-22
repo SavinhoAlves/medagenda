@@ -7,6 +7,12 @@ export const useAuthStore = defineStore('auth', {
     token: null
   }),
 
+  getters: {
+    isAdmin:    (state) => state.usuario?.cargo === 'admin',
+    isMedico:   (state) => state.usuario?.cargo === 'medico',
+    isOperador: (state) => state.usuario?.cargo === 'operador',
+  },
+
   actions: {
     async login(email, senha) {
       try {

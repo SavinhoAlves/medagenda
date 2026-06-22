@@ -185,10 +185,39 @@ async function excluir() {
 }
 
 let conveniosCarregados = false
+let historicoCarregado = false
+
+const historico = ref([])
+const carregandoHistorico = ref(false)
+
+async function carregarHistorico() {
+  carregandoHistorico.value = true
+  try {
+    const { data } = await api.get(`/pacientes/${props.pacienteId}/consultas`)
+    historico.value = data
+  } catch (err) {
+    console.error('[ProntuarioPaciente] Erro ao carregar histórico:', err?.message)
+  } finally {
+    carregandoHistorico.value = false
+  }
+}
+
+function statusLabel(s) {
+  const mapa = {
+    AGENDADA: 'Agendada', CONFIRMADA: 'Confirmada', EM_ANDAMENTO: 'Em andamento',
+    FINALIZADA: 'Finalizada', CANCELADA: 'Cancelada', FALTOU: 'Faltou',
+  }
+  return mapa[s] ?? s
+}
+
 watch(abaAtiva, (aba) => {
   if (aba === 'convenios' && !conveniosCarregados) {
     conveniosCarregados = true
     carregarConvenios()
+  }
+  if (aba === 'historico' && !historicoCarregado) {
+    historicoCarregado = true
+    carregarHistorico()
   }
 })
 
@@ -618,11 +647,27 @@ onMounted(carregar)
 
             <!-- ── Histórico ── -->
             <div v-show="abaAtiva === 'historico'">
-              <div class="card empty-card">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36" class="empty-icon">
-                  <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
-                </svg>
-                <p>Nenhuma consulta registrada.</p>
+              <div class="card">
+                <h3 class="card-title">Histórico de Consultas</h3>
+                <div v-if="carregandoHistorico" class="pron-loading" style="min-height: 120px;">
+                  <div class="spinner"></div>
+                </div>
+                <div v-else-if="historico.length === 0" class="empty-hist">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36" class="empty-icon">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+                  </svg>
+                  <p>Nenhuma consulta registrada.</p>
+                </div>
+                <ul v-else class="hist-list">
+                  <li v-for="c in historico" :key="c.id" class="hist-item">
+                    <div class="hist-meta">
+                      <span class="hist-date">{{ formatarDataHora(c.dataInicio) }}</span>
+                      <span class="hist-prof">{{ c.profissional?.nome ?? '—' }}</span>
+                      <span v-if="c.profissional?.especialidade" class="hist-esp">{{ c.profissional.especialidade.nome }}</span>
+                    </div>
+                    <span class="hist-badge" :class="c.status?.toLowerCase()">{{ statusLabel(c.status) }}</span>
+                  </li>
+                </ul>
               </div>
             </div>
 
@@ -1264,4 +1309,77 @@ input:checked + .slider:before { transform: translateX(16px); }
   flex-shrink: 0;
 }
 .btn-desvincular:hover { background: #fef2f2; color: #dc2626; }
+
+/* ── Histórico ── */
+.empty-hist {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 0 16px;
+  color: #94a3b8;
+  text-align: center;
+}
+.empty-hist p { margin: 0; font-size: 13.5px; }
+
+.hist-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hist-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  transition: border-color 0.15s;
+}
+.hist-item:hover { border-color: #cbd5e1; }
+
+.hist-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hist-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.hist-prof {
+  font-size: 12px;
+  color: #475569;
+}
+
+.hist-esp {
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+.hist-badge {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.hist-badge.agendada     { background: #d1fae5; color: #065f46; }
+.hist-badge.confirmada   { background: #dbeafe; color: #1e40af; }
+.hist-badge.em_andamento { background: #fef3c7; color: #92400e; }
+.hist-badge.finalizada   { background: #ede9fe; color: #5b21b6; }
+.hist-badge.cancelada    { background: #fee2e2; color: #991b1b; }
+.hist-badge.faltou       { background: #fef9c3; color: #854d0e; }
 </style>
