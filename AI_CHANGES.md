@@ -225,10 +225,51 @@ git rm backend/prisma/migrations/20260623045926_add_sugestoes/migration.sql
 
 ---
 
+## [2026-06-23] — Manual do sistema com mockups interativos
+
+**Commit:** `fbe4e7d`
+
+---
+
+### #09 — Manual do sistema com screenshots e vídeos
+
+**Solicitação:**
+> "Gere um manual do sistema que mostre como usá-lo, for possivel, gere imagens e videos para que fique bem autoexplicativo"
+> "adiciona os screenshots e vídeos no manual (Não sei se você consegue 'ver' o sistema internamente para tirar prints, mas acredito que baseado nos codigos dos arquivos voce consegue criar videos"
+
+**O que foi feito:**
+- Criado `docs/manual.html` — manual completo com 15 seções, sidebar de navegação, scroll spy
+- Todos os placeholders de screenshot substituídos por mockups HTML/CSS precisos construídos a partir do código-fonte real dos componentes
+- Todos os placeholders de vídeo substituídos por story players JavaScript interativos com frames animados:
+  - `story-login` (4 frames) — fluxo de login
+  - `story-agenda` (5 frames) — agendamento de consulta
+  - `story-emr` (4 frames) — prontuário eletrônico
+  - `story-ai` (5 frames) — assistente IA flutuante
+- Implementadas funções JS: `storyPrev()`, `storyNext()`, `storyToggle()` com timer auto-play e barra de progresso
+- Mockups criados: Login, Dashboard, Agenda calendário + modal, Lista de consultas, Prontuário EMR, Pacientes, Convênios, Profissionais, Solicitações de exclusão, Notificações, Painel AI Chat, AI Specs, comparação Tema Claro vs. Escuro
+- Adicionada animação `pulse-ring` para o botão FAB da IA no story player
+
+**Arquivos alterados:**
+- `docs/manual.html` — **NOVO** — 2.100+ linhas de HTML/CSS/JS
+
+**Risco:** zero — arquivo de documentação, não afeta funcionamento do sistema
+
+**Como reverter:**
+```bash
+git rm docs/manual.html
+# ou para restaurar a versão anterior (sem mockups):
+git checkout 8c7ae13 -- docs/manual.html
+```
+
+---
+
 ## Commits de referência
 
 | Hash | Descrição | Data |
 |---|---|---|
+| `fbe4e7d` | docs: manual com mockups interativos e story players | 2026-06-23 |
+| `8c7ae13` | docs: manual com placeholders (versão anterior) | 2026-06-23 |
+| `c668ef6` | docs: AI changes log | 2026-06-23 |
 | `a010f31` | feat: AI assistant, dark mode fixes, auth middleware and EMR | 2026-06-23 |
 | `20119fa` | feat: EMR atendimento, typeahead paciente, valores profissional | anterior |
 | `3728817` | feat: migrate navigation to header, notifications | anterior |
