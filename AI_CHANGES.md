@@ -14,6 +14,34 @@ Cada entrada documenta o que foi solicitado, o que foi alterado e como reverter 
 
 ---
 
+## [2026-06-23] — Correção: FullCalendar mostrava consultas de todos os profissionais
+
+---
+
+### #11 — Filtro de consultas por profissional na agenda
+
+**Solicitação:**
+> "Notei um erro, no FullCalendar aparece consulta de outros profissionais para outro profissional [...] exiba somente as consultas para cada profissional"
+
+**Causa raiz:**
+`consultaController.listar` retornava todas as consultas sem filtro. O modelo `Profissional` não tem `usuarioId`, mas possui `email` que coincide com o `email` do `Usuario` médico.
+
+**O que foi feito:**
+- `backend/src/controllers/consultaController.js` — modificada função `listar`:
+  - Se `req.usuario.cargo === 'medico'`: busca o `Profissional` com mesmo email e filtra por `profissionalId`
+  - Se `?profissionalId=X` na query string: filtra pelo ID informado (admin pode filtrar por profissional específico)
+  - Admin e operador sem filtro: retornam todas as consultas
+
+**Arquivos alterados:**
+- `backend/src/controllers/consultaController.js` — listar() com filtro por cargo
+
+**Como reverter:**
+```bash
+git checkout HEAD -- backend/src/controllers/consultaController.js
+```
+
+---
+
 ## [2026-06-23] — Prontuário Eletrônico: rotas backend + integração frontend
 
 **Sessão:** continuação

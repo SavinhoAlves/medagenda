@@ -2,7 +2,19 @@ const prisma = require('../config/database')
 
 exports.listar = async (req, res) => {
   try {
+    const where = {}
+
+    if (req.query.profissionalId) {
+      where.profissionalId = Number(req.query.profissionalId)
+    } else if (req.usuario?.cargo === 'medico') {
+      const profissional = await prisma.profissional.findFirst({
+        where: { email: req.usuario.email }
+      })
+      where.profissionalId = profissional ? profissional.id : -1
+    }
+
     const consultas = await prisma.consulta.findMany({
+      where,
       include: {
         paciente: true,
         profissional: { include: { especialidade: true } }
