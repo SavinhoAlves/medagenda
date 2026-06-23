@@ -14,6 +14,60 @@ Cada entrada documenta o que foi solicitado, o que foi alterado e como reverter 
 
 ---
 
+## [2026-06-23] — Prontuário Eletrônico: rotas backend + integração frontend
+
+**Sessão:** continuação
+
+---
+
+### #10 — Wiring completo do Prontuário Eletrônico (backend + frontend)
+
+**Solicitação:**
+> "Continue o que o chat anterior começou!"
+
+**Contexto:**
+O chat anterior havia criado o schema, migration, controller e middleware do prontuário eletrônico, mas parou antes de criar o arquivo de rotas e integrar o frontend.
+
+**O que foi feito:**
+
+**Backend:**
+- Criado `backend/src/routes/prontuarioRoutes.js` — rotas completas do prontuário com auth middleware e upload middleware para resultados/documentos/anexos
+- Atualizado `backend/src/app.js` — montado `/prontuarios`, `/cid10` e `/medicamentos`
+
+**Frontend:**
+- Reescrito `frontend/pages/consultas/[id].vue` — migrado da abordagem anterior (JSON serializado em `consulta.observacoes`) para o novo API dedicado:
+  - `carregarProntuario()` — carrega `GET /prontuarios/consulta/:id` e popula todos os refs
+  - `_salvarCore()` — salva sinaisVitais, anamnese, exameFisico, conduta em paralelo + sincroniza prescrições e exames solicitados
+  - Hipóteses diagnósticas: CRUD imediato via API (add → POST, tipo change → PATCH, remove → DELETE)
+  - Documentos: POST imediato ao salvar; DELETE imediato ao remover
+  - Tabela de acompanhamento e resultados de texto: persistidos como JSON em `conduta.observacoes`
+  - CID-10 typeahead: tenta `GET /cid10?q=...` primeiro, fallback para lista local
+
+**Mapeamentos campo-a-campo:**
+- `ef.altura` (cm) → `sinaisVitais.altura` (metros) — conversão ÷100 no save, ×100 no load
+- `ef.pressaoArterial` ("120/80") → `pressaoSistolica`/`pressaoDiastolica` — split por "/"
+- `anamnese.historicoFamiliar` → `antecedentesFamiliares`
+- `conduta` (texto) → `conduta.planoTerapeutico`
+
+**Arquivos alterados:**
+- `backend/src/routes/prontuarioRoutes.js` — **NOVO**
+- `backend/src/app.js` — adicionadas rotas prontuários/cid10/medicamentos
+- `frontend/pages/consultas/[id].vue` — script reescrito para usar prontuário API
+
+**Como reverter:**
+```bash
+# Reverter frontend
+git checkout HEAD~1 -- frontend/pages/consultas/[id].vue
+
+# Reverter app.js
+git checkout HEAD~1 -- backend/src/app.js
+
+# Remover rota
+git rm backend/src/routes/prontuarioRoutes.js
+```
+
+---
+
 ## [2026-06-23] — Assistente IA flutuante + correções de dark mode, auth e EMR
 
 **Commit:** `a010f31`

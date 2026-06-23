@@ -132,7 +132,8 @@ model Profissional {
   especialidadeId Int
   especialidade   Especialidade @relation(fields: [especialidadeId], references: [id])
 
-  consultas Consulta[]
+  consultas       Consulta[]
+  acompanhamentos AcompanhamentoEntrada[]
 
   @@map("profissionais")
 }
@@ -167,6 +168,7 @@ model Consulta {
   profissional Profissional @relation(fields: [profissionalId], references: [id])
   usuario Usuario? @relation(fields: [usuarioId], references: [id])
   solicitacoesExclusao SolicitacaoExclusao[]
+  prontuario Prontuario?
 
   @@map("consultas")
 }
@@ -224,4 +226,330 @@ enum StatusConsulta {
   FINALIZADA
   CANCELADA
   FALTOU
+}
+
+// ── PRONTUÁRIO ELETRÔNICO ────────────────────────────────────────────────────
+
+model Prontuario {
+  id           Int      @id @default(autoincrement())
+  consultaId   Int      @unique
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  consulta Consulta @relation(fields: [consultaId], references: [id], onDelete: Cascade)
+
+  sinaisVitais          SinaisVitais?
+  anamnese              Anamnese?
+  exameFisico           ExameFisico?
+  hipoteses             HipoteseDiagnostica[]
+  conduta               Conduta?
+  examesSolicitados     ExameSolicitado[]
+  resultadosExames      ResultadoExame[]
+  prescricoes           Prescricao[]
+  documentos            DocumentoAtestado[]
+  anexos                Anexo[]
+  acompanhamentos       AcompanhamentoEntrada[]
+
+  @@map("prontuarios")
+}
+
+// ── Sinais Vitais ────────────────────────────────────────────────────────────
+
+model SinaisVitais {
+  id           Int @id @default(autoincrement())
+  prontuarioId Int @unique
+
+  pressaoSistolica       Int?
+  pressaoDiastolica      Int?
+  frequenciaCardiaca     Int?
+  frequenciaRespiratoria Int?
+  saturacaoO2            Float?
+  temperatura            Float?
+  peso                   Float?
+  altura                 Float?
+  imc                    Float?
+  circunferenciaAbdominal Float?
+  glicemia               Float?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  prontuario Prontuario @relation(fields: [prontuarioId], references: [id], onDelete: Cascade)
+
+  @@map("sinais_vitais")
+}
+
+// ── Anamnese ─────────────────────────────────────────────────────────────────
+
+model Anamnese {
+  id           Int @id @default(autoincrement())
+  prontuarioId Int @unique
+
+  queixaPrincipal        String? @banco.Text
+  historiaDoencaAtual    String? @banco.Text
+  antecedentesPessoais   String? @banco.Text
+  antecedentesFamiliares String? @banco.Text
+  habitosVida            String? @banco.Text
+  medicamentosUso        String? @banco.Text
+  alergias               String? @banco.Text
+  vacinacao              String? @banco.Text
+  revisaoSistemas        String? @banco.Text
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  prontuario Prontuario @relation(fields: [prontuarioId], references: [id], onDelete: Cascade)
+
+  @@map("anamneses")
+}
+
+// ── Exame Físico ─────────────────────────────────────────────────────────────
+
+model ExameFisico {
+  id           Int @id @default(autoincrement())
+  prontuarioId Int @unique
+
+  estadoGeral        String? @banco.Text
+  pele               String? @banco.Text
+  cabecaPescoco      String? @banco.Text
+  toracoRespiratorio String? @banco.Text
+  toracoCardiaco     String? @banco.Text
+  abdome             String? @banco.Text
+  membrosPelve       String? @banco.Text
+  neurologico        String? @banco.Text
+  outrosAchados      String? @banco.Text
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  prontuario Prontuario @relation(fields: [prontuarioId], references: [id], onDelete: Cascade)
+
+  @@map("exames_fisicos")
+}
+
+// ── CID-10 (tabela de referência) ────────────────────────────────────────────
+
+model Cid10 {
+  id        Int     @id @default(autoincrement())
+  codigo    String  @unique
+  descricao String
+  categoria String?
+  capitulo  String?
+  ativo     Boolean @default(true)
+
+  hipoteses HipoteseDiagnostica[]
+
+  @@map("cid10")
+  @@index([codigo])
+  @@index([descricao(length: 80)])
+}
+
+// ── Hipótese Diagnóstica ─────────────────────────────────────────────────────
+
+model HipoteseDiagnostica {
+  id           Int  @id @default(autoincrement())
+  prontuarioId Int
+  cid10Id      Int?
+
+  cidManual String?
+  descricao String? @banco.Text
+  tipo      String  @default("PRINCIPAL")
+  confirmado Boolean @default(false)
+
+  criadoEm DateTime @default(now())
+
+  prontuario Prontuario @relation(fields: [prontuarioId], references: [id], onDelete: Cascade)
+  cid10      Cid10?     @relation(fields: [cid10Id], references: [id])
+
+  @@map("hipoteses_diagnosticas")
+}
+
+// ── Conduta ──────────────────────────────────────────────────────────────────
+
+model Conduta {
+  id           Int @id @default(autoincrement())
+  prontuarioId Int @unique
+
+  planoTerapeutico String?   @banco.Text
+  orientacoes      String?   @banco.Text
+  restricoes       String?   @banco.Text
+  encaminhamento   String?   @banco.Text
+  observacoes      String?   @banco.Text
+  retornoDescricao String?
+  dataRetorno      DateTime?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  prontuario Prontuario @relation(fields: [prontuarioId], references: [id], onDelete: Cascade)
+
+  @@map("condutas")
+}
+
+// ── Exames Solicitados ───────────────────────────────────────────────────────
+
+model ExameSolicitado {
+  id           Int @id @default(autoincrement())
+  prontuarioId Int
+
+  tipo      String  @default("LABORATORIAL")
+  nome      String
+  codigo    String?
+  indicacao String? @banco.Text
+  urgente   Boolean @default(false)
+  status    String  @default("SOLICITADO")
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  prontuario Prontuario @relation(fields: [prontuarioId], references: [id], onDelete: Cascade)
+
+  @@map("exames_solicitados")
+}
+
+// ── Resultado de Exame ───────────────────────────────────────────────────────
+
+model ResultadoExame {
+  id           Int @id @default(autoincrement())
+  prontuarioId Int
+
+  nome          String
+  tipo          String  @default("LABORATORIAL")
+  origem        String  @default("EXTERNO")
+  dataColeta    DateTime?
+  dataResultado DateTime?
+  conteudo      String?   @banco.LongText
+  interpretacao String?   @banco.Text
+
+  arquivo         String?
+  arquivoNome     String?
+  arquivoTipo     String?
+  arquivoTamanho  Int?
+
+  observacoes String? @banco.Text
+
+  criadoEm DateTime @default(now())
+
+  prontuario Prontuario @relation(fields: [prontuarioId], references: [id], onDelete: Cascade)
+
+  @@map("resultados_exames")
+}
+
+// ── Medicamento (tabela de referência) ──────────────────────────────────────
+
+model Medicamento {
+  id             Int     @id @default(autoincrement())
+  nome           String
+  principioAtivo String
+  apresentacao   String?
+  classe         String?
+  controlado     Boolean @default(false)
+  ativo          Boolean @default(true)
+
+  itensPrescricao ItemPrescricao[]
+
+  @@map("medicamentos")
+  @@index([nome(length: 80)])
+  @@index([principioAtivo(length: 80)])
+}
+
+// ── Prescrição ───────────────────────────────────────────────────────────────
+
+model Prescricao {
+  id           Int @id @default(autoincrement())
+  prontuarioId Int
+
+  tipo        String    @default("SIMPLES")
+  observacoes String?   @banco.Text
+  validade    DateTime?
+  emitidaEm  DateTime  @default(now())
+
+  prontuario Prontuario     @relation(fields: [prontuarioId], references: [id], onDelete: Cascade)
+  itens      ItemPrescricao[]
+
+  @@map("prescricoes")
+}
+
+// ── Item da Prescrição ───────────────────────────────────────────────────────
+
+model ItemPrescricao {
+  id            Int  @id @default(autoincrement())
+  prescricaoId  Int
+  medicamentoId Int?
+
+  medicamentoManual String?
+  apresentacao      String?
+  dose              String?
+  via               String?
+  frequencia        String?
+  duracao           String?
+  quantidade        String?
+  instrucoes        String? @banco.Text
+
+  prescricao  Prescricao   @relation(fields: [prescricaoId], references: [id], onDelete: Cascade)
+  medicamento Medicamento? @relation(fields: [medicamentoId], references: [id])
+
+  @@map("itens_prescricao")
+}
+
+// ── Documentos e Atestados ───────────────────────────────────────────────────
+
+model DocumentoAtestado {
+  id           Int @id @default(autoincrement())
+  prontuarioId Int
+
+  tipo            String
+  titulo          String
+  conteudo        String?   @banco.LongText
+  arquivo         String?
+  arquivoNome     String?
+  diasAfastamento Int?
+  dataInicio      DateTime?
+  dataFim         DateTime?
+
+  emitidoEm DateTime @default(now())
+
+  prontuario Prontuario @relation(fields: [prontuarioId], references: [id], onDelete: Cascade)
+
+  @@map("documentos_atestados")
+}
+
+// ── Imagens e Anexos ─────────────────────────────────────────────────────────
+
+model Anexo {
+  id           Int @id @default(autoincrement())
+  prontuarioId Int
+
+  titulo         String?
+  descricao      String?
+  arquivo        String
+  arquivoNome    String
+  arquivoTipo    String
+  arquivoTamanho Int?
+  categoria      String @default("GERAL")
+
+  criadoEm DateTime @default(now())
+
+  prontuario Prontuario @relation(fields: [prontuarioId], references: [id], onDelete: Cascade)
+
+  @@map("anexos")
+}
+
+// ── Acompanhamento / Evolução ────────────────────────────────────────────────
+
+model AcompanhamentoEntrada {
+  id           Int @id @default(autoincrement())
+  prontuarioId Int
+  medicoId     Int
+
+  evolucao String @banco.Text
+  tipo     String @default("EVOLUTIVA")
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  prontuario Prontuario   @relation(fields: [prontuarioId], references: [id], onDelete: Cascade)
+  medico     Profissional @relation(fields: [medicoId], references: [id])
+
+  @@map("acompanhamentos")
 }

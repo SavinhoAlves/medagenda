@@ -16,6 +16,7 @@ const toast  = useToast()
 const consultaId = computed(() => Number(route.params.id))
 const consulta   = ref(null)
 const paciente   = ref(null)
+const prontuario = ref(null)
 const carregando = ref(true)
 const salvando   = ref(false)
 const secaoAtiva = ref('historico')
@@ -26,17 +27,17 @@ const atendimentoFinalizado = computed(() => consulta.value?.status === 'FINALIZ
 
 // ── Seções ────────────────────────────────────────────────────────────────────
 const SECOES_TODAS = [
-  { key: 'historico',         label: 'Histórico de Consulta',    icon: 'M12 8v4l3 3M3.05 11a9 9 0 1 0 .5-3M3 4v4h4' },
-  { key: 'acompanhamento',    label: 'Tabela de Acompanhamento', icon: 'M3 3h18v18H3zM3 9h18M9 3v18' },
-  { key: 'anamnese',          label: 'Anamnese',                 icon: 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' },
-  { key: 'exameFisico',       label: 'Exame Físico',             icon: 'M22 12h-4l-3 9L9 3l-3 9H2' },
-  { key: 'resultados',        label: 'Resultados de Exames',     icon: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 12h6' },
-  { key: 'diagnosticos',      label: 'Hipótese Diagnóstica',     icon: 'M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z' },
-  { key: 'condutas',          label: 'Condutas',                 icon: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 12h6M9 16h4M9 8h6' },
-  { key: 'examesProcedimentos', label: 'Exames e Procedimentos', icon: 'M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18' },
-  { key: 'prescricoes',       label: 'Prescrições',              icon: 'M19 11V9a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2M19 11l-7 7-4-4' },
-  { key: 'documentos',        label: 'Documentos e Atestados',   icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6' },
-  { key: 'imagens',           label: 'Imagens e Anexos',         icon: 'M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-2-2 1.586-1.586a2 2 0 0 1 2.828 0L20 14m-6-6h.01M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z' },
+  { key: 'historico',           label: 'Histórico de Consulta',    icon: 'M12 8v4l3 3M3.05 11a9 9 0 1 0 .5-3M3 4v4h4' },
+  { key: 'acompanhamento',      label: 'Tabela de Acompanhamento', icon: 'M3 3h18v18H3zM3 9h18M9 3v18' },
+  { key: 'anamnese',            label: 'Anamnese',                 icon: 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z' },
+  { key: 'exameFisico',         label: 'Exame Físico',             icon: 'M22 12h-4l-3 9L9 3l-3 9H2' },
+  { key: 'resultados',          label: 'Resultados de Exames',     icon: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 12h6' },
+  { key: 'diagnosticos',        label: 'Hipótese Diagnóstica',     icon: 'M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z' },
+  { key: 'condutas',            label: 'Condutas',                 icon: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 12h6M9 16h4M9 8h6' },
+  { key: 'examesProcedimentos', label: 'Exames e Procedimentos',   icon: 'M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18' },
+  { key: 'prescricoes',         label: 'Prescrições',              icon: 'M19 11V9a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2M19 11l-7 7-4-4' },
+  { key: 'documentos',          label: 'Documentos e Atestados',   icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6' },
+  { key: 'imagens',             label: 'Imagens e Anexos',         icon: 'M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16m-2-2 1.586-1.586a2 2 0 0 1 2.828 0L20 14m-6-6h.01M6 20h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z' },
 ]
 
 const secoesDisponiveis = computed(() =>
@@ -44,14 +45,14 @@ const secoesDisponiveis = computed(() =>
 )
 
 // ── Acompanhamento ────────────────────────────────────────────────────────────
-const acompanhamento   = ref([])
-const addAcomp         = () => acompanhamento.value.push({ exame: '', data: '' })
-const removeAcomp      = (i) => acompanhamento.value.splice(i, 1)
+const acompanhamento = ref([])
+const addAcomp       = () => acompanhamento.value.push({ exame: '', data: '' })
+const removeAcomp    = (i) => acompanhamento.value.splice(i, 1)
 
 // ── Anamnese ──────────────────────────────────────────────────────────────────
 const anamnese = ref({ queixaPrincipal: '', historiaDoencaAtual: '', historicoFamiliar: '', alergias: '' })
 
-// ── Exame Físico ──────────────────────────────────────────────────────────────
+// ── Exame Físico / Sinais Vitais ──────────────────────────────────────────────
 const ef = ref({ peso: '', altura: '', pressaoArterial: '', frequenciaCardiaca: '', temperatura: '', saturacao: '', descricao: '' })
 
 const imc = computed(() => {
@@ -69,62 +70,119 @@ const imcLabel = computed(() => {
 const resultados = ref({ laboratoriais: '', imagem: '' })
 
 // ── CID-10 ────────────────────────────────────────────────────────────────────
-const diagnosticos = ref([])
-const buscaCid     = ref('')
+const diagnosticos  = ref([])
+const buscaCid      = ref('')
 const cidResultados = ref([])
-const cidFoco      = ref(false)
+const cidFoco       = ref(false)
 const cidBase = [
-  { codigo: 'A09', descricao: 'Gastroenterite e colites de origem infecciosa' },
+  { codigo: 'A09',   descricao: 'Gastroenterite e colites de origem infecciosa' },
   { codigo: 'B34.9', descricao: 'Infecção viral não especificada' },
-  { codigo: 'E11', descricao: 'Diabetes mellitus tipo 2' },
-  { codigo: 'E66', descricao: 'Obesidade' },
-  { codigo: 'F32', descricao: 'Episódio depressivo' },
+  { codigo: 'E11',   descricao: 'Diabetes mellitus tipo 2' },
+  { codigo: 'E66',   descricao: 'Obesidade' },
+  { codigo: 'F32',   descricao: 'Episódio depressivo' },
   { codigo: 'F41.1', descricao: 'Transtorno de ansiedade generalizada' },
-  { codigo: 'G43', descricao: 'Enxaqueca' },
-  { codigo: 'I10', descricao: 'Hipertensão essencial (primária)' },
-  { codigo: 'J00', descricao: 'Nasofaringite aguda [resfriado comum]' },
+  { codigo: 'G43',   descricao: 'Enxaqueca' },
+  { codigo: 'I10',   descricao: 'Hipertensão essencial (primária)' },
+  { codigo: 'J00',   descricao: 'Nasofaringite aguda [resfriado comum]' },
   { codigo: 'J06.9', descricao: 'Infecção aguda das vias aéreas superiores NE' },
   { codigo: 'J18.9', descricao: 'Pneumonia não especificada' },
   { codigo: 'K21.0', descricao: 'Refluxo gastroesofágico com esofagite' },
   { codigo: 'K59.0', descricao: 'Obstipação intestinal' },
   { codigo: 'M54.5', descricao: 'Dor lombar baixa' },
   { codigo: 'N39.0', descricao: 'Infecção do trato urinário' },
-  { codigo: 'R51', descricao: 'Cefaleia' },
+  { codigo: 'R51',   descricao: 'Cefaleia' },
   { codigo: 'Z00.0', descricao: 'Exame médico geral' },
 ]
-watch(buscaCid, (v) => {
+
+watch(buscaCid, async (v) => {
   if (!v.trim()) { cidResultados.value = []; return }
+  try {
+    const { data } = await api.get(`/cid10?q=${encodeURIComponent(v)}&limit=8`)
+    if (data.length) { cidResultados.value = data; return }
+  } catch { /* fall through to local */ }
   const q = v.toLowerCase()
-  cidResultados.value = cidBase.filter(c => c.codigo.toLowerCase().includes(q) || c.descricao.toLowerCase().includes(q)).slice(0, 8)
+  cidResultados.value = cidBase.filter(c =>
+    c.codigo.toLowerCase().includes(q) || c.descricao.toLowerCase().includes(q)
+  ).slice(0, 8)
 })
-function adicionarDiagnostico(cid) {
-  if (!diagnosticos.value.find(d => d.codigo === cid.codigo))
-    diagnosticos.value.push({ ...cid, tipo: diagnosticos.value.length === 0 ? 'Principal' : 'Secundário' })
+
+const TIPO_LABEL = { PRINCIPAL: 'Principal', SECUNDARIA: 'Secundário', DESCARTADA: 'Descartado' }
+const TIPO_KEY   = { 'Principal': 'PRINCIPAL', 'Secundário': 'SECUNDARIA', 'Descartado': 'DESCARTADA' }
+
+async function adicionarDiagnostico(cid) {
+  if (!prontuario.value) return
+  if (diagnosticos.value.find(d => d.codigo === cid.codigo)) {
+    buscaCid.value = ''; cidResultados.value = []; return
+  }
+  try {
+    const tipo = diagnosticos.value.length === 0 ? 'PRINCIPAL' : 'SECUNDARIA'
+    const { data } = await api.post(`/prontuarios/${prontuario.value.id}/hipoteses`, {
+      cidManual: cid.codigo, descricao: cid.descricao, tipo
+    })
+    diagnosticos.value.push({
+      id: data.id,
+      codigo: data.cidManual || cid.codigo,
+      descricao: data.descricao || cid.descricao,
+      tipo: TIPO_LABEL[data.tipo] || 'Secundário'
+    })
+  } catch { toast.erro('Erro ao adicionar diagnóstico.') }
   buscaCid.value = ''; cidResultados.value = []
 }
-function removerDiagnostico(i) { diagnosticos.value.splice(i, 1) }
+
+async function removerDiagnostico(i) {
+  const d = diagnosticos.value[i]
+  if (!d) return
+  if (d.id && prontuario.value) {
+    try {
+      await api.delete(`/prontuarios/${prontuario.value.id}/hipoteses/${d.id}`)
+    } catch { toast.erro('Erro ao remover diagnóstico.'); return }
+  }
+  diagnosticos.value.splice(i, 1)
+}
+
+async function atualizarTipoHipotese(d) {
+  if (!d.id || !prontuario.value) return
+  try {
+    await api.patch(`/prontuarios/${prontuario.value.id}/hipoteses/${d.id}`, {
+      tipo: TIPO_KEY[d.tipo] || 'SECUNDARIA'
+    })
+  } catch { /* silent */ }
+}
 
 // ── Condutas ──────────────────────────────────────────────────────────────────
 const conduta = ref('')
 
 // ── Exames e Procedimentos ────────────────────────────────────────────────────
-const paginasExames = ref([])
-const paginaAtual   = ref(0)
+const paginasExames      = ref([])
+const paginaAtual        = ref(0)
+const examesParaDeletar  = ref([])
+
 function addPagina() {
   paginasExames.value.push({ tipo: 'SADT', indicacaoClinica: '', itens: [{ nome: '', quantidade: 1 }] })
   paginaAtual.value = paginasExames.value.length - 1
 }
 function removePagina(i) {
+  const pg = paginasExames.value[i]
+  if (pg) pg.itens.forEach(it => { if (it.id) examesParaDeletar.value.push(it.id) })
   paginasExames.value.splice(i, 1)
   paginaAtual.value = Math.max(0, Math.min(paginaAtual.value, paginasExames.value.length - 1))
 }
 function addItem(p)    { p.itens.push({ nome: '', quantidade: 1 }) }
-function removeItem(p, i) { p.itens.splice(i, 1) }
+function removeItem(p, i) {
+  const it = p.itens[i]
+  if (it?.id) examesParaDeletar.value.push(it.id)
+  p.itens.splice(i, 1)
+}
 
 // ── Prescrições ───────────────────────────────────────────────────────────────
-const prescricoes    = ref([])
-const addPrescricao  = () => prescricoes.value.push({ medicamento: '', posologia: '', frequencia: '', duracao: '' })
-const removePrescricao = (i) => prescricoes.value.splice(i, 1)
+const prescricoes            = ref([])
+const prescricoesParaDeletar = ref([])
+const addPrescricao          = () => prescricoes.value.push({ medicamento: '', posologia: '', frequencia: '', duracao: '' })
+function removePrescricao(i) {
+  const p = prescricoes.value[i]
+  if (p?.id) prescricoesParaDeletar.value.push(p.id)
+  prescricoes.value.splice(i, 1)
+}
 
 // ── Documentos ────────────────────────────────────────────────────────────────
 const documentos = ref([])
@@ -137,30 +195,39 @@ function novoDoc(tipo) {
 function editarDoc(d) {
   docAtual.value = { ...d }
 }
-function salvarDoc() {
+async function salvarDoc() {
   if (!docAtual.value) return
-  if (docAtual.value.id) {
-    const idx = documentos.value.findIndex(d => d.id === docAtual.value.id)
-    if (idx !== -1) documentos.value[idx].conteudo = docAtual.value.conteudo
-  } else {
-    documentos.value.push({ id: Date.now(), tipo: docAtual.value.tipo, conteudo: docAtual.value.conteudo, dataCriacao: new Date().toISOString() })
-    docAtual.value.id = documentos.value[documentos.value.length - 1].id
-  }
-  toast.sucesso('Documento salvo!')
+  try {
+    if (docAtual.value.id) {
+      const idx = documentos.value.findIndex(d => d.id === docAtual.value.id)
+      if (idx !== -1) documentos.value[idx].conteudo = docAtual.value.conteudo
+    } else {
+      if (!prontuario.value) return
+      const { data } = await api.post(`/prontuarios/${prontuario.value.id}/documentos`, {
+        tipo: docAtual.value.tipo, titulo: docAtual.value.tipo, conteudo: docAtual.value.conteudo
+      })
+      const doc = { id: data.id, tipo: data.titulo || data.tipo, conteudo: data.conteudo || '', dataCriacao: data.emitidoEm }
+      documentos.value.push(doc)
+      docAtual.value = { ...doc }
+    }
+    toast.sucesso('Documento salvo!')
+  } catch { toast.erro('Erro ao salvar documento.') }
 }
-function removerDoc(id) {
+async function removerDoc(id) {
+  if (id && prontuario.value) {
+    try {
+      await api.delete(`/prontuarios/${prontuario.value.id}/documentos/${id}`)
+    } catch { toast.erro('Erro ao remover documento.'); return }
+  }
   documentos.value = documentos.value.filter(d => d.id !== id)
   if (docAtual.value?.id === id) docAtual.value = null
 }
 
 // ── Imagens e Anexos ──────────────────────────────────────────────────────────
-const imagens    = ref([])
-const isDragging = ref(false)
+const imagens      = ref([])
+const isDragging   = ref(false)
 const fileInputRef = ref(null)
-function onDrop(e) {
-  isDragging.value = false
-  processarArquivos(e.dataTransfer.files)
-}
+function onDrop(e) { isDragging.value = false; processarArquivos(e.dataTransfer.files) }
 function onFileChange(e) { processarArquivos(e.target.files) }
 function processarArquivos(files) {
   for (const f of files) {
@@ -214,33 +281,153 @@ function statusLabel(s) {
   return { AGENDADA: 'Agendada', CONFIRMADA: 'Confirmada', EM_ANDAMENTO: 'Em andamento', FINALIZADA: 'Finalizada', CANCELADA: 'Cancelada', FALTOU: 'Faltou' }[s] ?? (s || '—')
 }
 
-// ── Serialização ──────────────────────────────────────────────────────────────
-function serializarProntuario() {
-  return JSON.stringify({
-    anamnese: anamnese.value, exameFisico: ef.value, resultados: resultados.value,
-    diagnosticos: diagnosticos.value, conduta: conduta.value,
-    paginasExames: paginasExames.value,
-    exames: paginasExames.value.flatMap(p => p.itens.map(it => ({ nome: it.nome, quantidade: it.quantidade }))),
-    prescricoes: prescricoes.value, documentos: documentos.value, acompanhamento: acompanhamento.value,
-  })
+// ── Carregamento do Prontuário ────────────────────────────────────────────────
+async function carregarProntuario() {
+  const { data: p } = await api.get(`/prontuarios/consulta/${consultaId.value}`)
+  prontuario.value = p
+
+  if (p.anamnese) {
+    const a = p.anamnese
+    anamnese.value.queixaPrincipal     = a.queixaPrincipal        || ''
+    anamnese.value.historiaDoencaAtual = a.historiaDoencaAtual    || ''
+    anamnese.value.historicoFamiliar   = a.antecedentesFamiliares || ''
+    anamnese.value.alergias            = a.alergias               || ''
+  }
+
+  if (p.sinaisVitais) {
+    const sv = p.sinaisVitais
+    ef.value.peso              = sv.peso              ?? ''
+    ef.value.altura            = sv.altura            ? (sv.altura * 100).toFixed(0) : ''
+    ef.value.pressaoArterial   = sv.pressaoSistolica && sv.pressaoDiastolica
+      ? `${sv.pressaoSistolica}/${sv.pressaoDiastolica}` : ''
+    ef.value.frequenciaCardiaca = sv.frequenciaCardiaca ?? ''
+    ef.value.temperatura       = sv.temperatura       ?? ''
+    ef.value.saturacao         = sv.saturacaoO2       ?? ''
+  }
+
+  if (p.exameFisico) ef.value.descricao = p.exameFisico.estadoGeral || ''
+
+  if (p.conduta) {
+    conduta.value = p.conduta.planoTerapeutico || ''
+    try {
+      const obs = JSON.parse(p.conduta.observacoes || '{}')
+      if (Array.isArray(obs.acompanhamento)) acompanhamento.value = obs.acompanhamento
+      if (obs.resultadoLab) resultados.value.laboratoriais = obs.resultadoLab
+      if (obs.resultadoImg) resultados.value.imagem        = obs.resultadoImg
+    } catch { /* silent */ }
+  }
+
+  if (p.hipoteses?.length) {
+    diagnosticos.value = p.hipoteses.map(h => ({
+      id:        h.id,
+      codigo:    h.cid10?.codigo || h.cidManual || '',
+      descricao: h.cid10?.descricao || h.descricao || '',
+      tipo:      TIPO_LABEL[h.tipo] || 'Secundário'
+    }))
+  }
+
+  if (p.examesSolicitados?.length) {
+    paginasExames.value = [{
+      tipo: 'SADT',
+      indicacaoClinica: p.examesSolicitados[0]?.indicacao || '',
+      itens: p.examesSolicitados.map(e => ({ id: e.id, nome: e.nome, quantidade: 1 }))
+    }]
+    paginaAtual.value = 0
+  }
+
+  if (p.prescricoes?.length) {
+    prescricoes.value = p.prescricoes.map(pr => {
+      const item = pr.itens?.[0]
+      return {
+        id:          pr.id,
+        medicamento: item?.medicamentoManual || item?.medicamento?.nome || '',
+        posologia:   item?.dose       || '',
+        frequencia:  item?.frequencia || '',
+        duracao:     item?.duracao    || ''
+      }
+    })
+  }
+
+  if (p.documentos?.length) {
+    documentos.value = p.documentos.map(d => ({
+      id:          d.id,
+      tipo:        d.titulo || d.tipo,
+      conteudo:    d.conteudo || '',
+      dataCriacao: d.emitidoEm
+    }))
+  }
 }
-function desserializarProntuario(json) {
-  if (!json) return
-  try {
-    const d = JSON.parse(json)
-    if (d.anamnese)    Object.assign(anamnese.value, d.anamnese)
-    if (d.exameFisico) Object.assign(ef.value, d.exameFisico)
-    if (d.resultados)  Object.assign(resultados.value, d.resultados)
-    if (Array.isArray(d.diagnosticos)) diagnosticos.value = d.diagnosticos
-    if (d.conduta) conduta.value = d.conduta
-    if (d.documentoTexto && !d.conduta) conduta.value = d.documentoTexto
-    if (Array.isArray(d.paginasExames) && d.paginasExames.length) paginasExames.value = d.paginasExames
-    else if (Array.isArray(d.exames) && d.exames.length)
-      paginasExames.value = [{ tipo: 'SADT', indicacaoClinica: '', itens: d.exames.map(e => ({ nome: e.nome || '', quantidade: e.quantidade || 1 })) }]
-    if (Array.isArray(d.prescricoes))   prescricoes.value = d.prescricoes
-    if (Array.isArray(d.documentos))    documentos.value = d.documentos
-    if (Array.isArray(d.acompanhamento)) acompanhamento.value = d.acompanhamento
-  } catch { /* silent */ }
+
+// ── Core de Persistência ──────────────────────────────────────────────────────
+async function _salvarCore() {
+  if (!prontuario.value) throw new Error('Prontuário não carregado')
+  const pid = prontuario.value.id
+
+  const bpParts    = (ef.value.pressaoArterial || '').split('/')
+  const sistolica  = parseInt(bpParts[0]?.trim()) || null
+  const diastolica = parseInt(bpParts[1]?.trim()) || null
+
+  const obs = JSON.stringify({
+    acompanhamento: acompanhamento.value,
+    resultadoLab:   resultados.value.laboratoriais,
+    resultadoImg:   resultados.value.imagem,
+  })
+
+  await Promise.all([
+    api.put(`/prontuarios/${pid}/sinais-vitais`, {
+      peso:               ef.value.peso              ? parseFloat(ef.value.peso)              : null,
+      altura:             ef.value.altura            ? parseFloat(ef.value.altura) / 100      : null,
+      pressaoSistolica:   sistolica,
+      pressaoDiastolica:  diastolica,
+      frequenciaCardiaca: ef.value.frequenciaCardiaca ? parseInt(ef.value.frequenciaCardiaca)  : null,
+      temperatura:        ef.value.temperatura       ? parseFloat(ef.value.temperatura)       : null,
+      saturacaoO2:        ef.value.saturacao         ? parseFloat(ef.value.saturacao)         : null,
+    }),
+    api.put(`/prontuarios/${pid}/anamnese`, {
+      queixaPrincipal:        anamnese.value.queixaPrincipal    || null,
+      historiaDoencaAtual:    anamnese.value.historiaDoencaAtual || null,
+      antecedentesFamiliares: anamnese.value.historicoFamiliar  || null,
+      alergias:               anamnese.value.alergias           || null,
+    }),
+    api.put(`/prontuarios/${pid}/exame-fisico`, {
+      estadoGeral: ef.value.descricao || null,
+    }),
+    api.put(`/prontuarios/${pid}/conduta`, {
+      planoTerapeutico: conduta.value || null,
+      observacoes: obs,
+    }),
+  ])
+
+  // Sync prescrições
+  for (const id of prescricoesParaDeletar.value) {
+    await api.delete(`/prontuarios/${pid}/prescricoes/${id}`)
+  }
+  prescricoesParaDeletar.value = []
+  for (const p of prescricoes.value) {
+    if (!p.id) {
+      const { data } = await api.post(`/prontuarios/${pid}/prescricoes`, {
+        tipo: 'SIMPLES',
+        itens: [{ medicamentoManual: p.medicamento, dose: p.posologia, frequencia: p.frequencia, duracao: p.duracao }]
+      })
+      p.id = data.id
+    }
+  }
+
+  // Sync exames solicitados
+  for (const id of examesParaDeletar.value) {
+    await api.delete(`/prontuarios/${pid}/exames-solicitados/${id}`)
+  }
+  examesParaDeletar.value = []
+  for (const pg of paginasExames.value) {
+    for (const ex of pg.itens) {
+      if (!ex.id && ex.nome) {
+        const { data } = await api.post(`/prontuarios/${pid}/exames-solicitados`, {
+          nome: ex.nome, tipo: pg.tipo || 'LABORATORIAL', indicacao: pg.indicacaoClinica,
+        })
+        ex.id = data.id
+      }
+    }
+  }
 }
 
 // ── Ações ─────────────────────────────────────────────────────────────────────
@@ -249,22 +436,25 @@ async function iniciarAtendimento() {
   try {
     const { data } = await api.patch(`/consultas/${consultaId.value}/status`, { status: 'EM_ANDAMENTO' })
     consulta.value = { ...consulta.value, status: data.status }
+    await carregarProntuario()
     toast.sucesso('Atendimento iniciado!')
   } catch { toast.erro('Erro ao iniciar atendimento.') }
   finally { salvando.value = false }
 }
+
 async function salvarAtendimento() {
   salvando.value = true
   try {
-    await api.put(`/consultas/${consultaId.value}`, { observacoes: serializarProntuario() })
+    await _salvarCore()
     toast.sucesso('Prontuário salvo!')
   } catch { toast.erro('Erro ao salvar.') }
   finally { salvando.value = false }
 }
+
 async function finalizarAtendimento() {
   salvando.value = true
   try {
-    await api.put(`/consultas/${consultaId.value}`, { observacoes: serializarProntuario() })
+    await _salvarCore()
     await api.patch(`/consultas/${consultaId.value}/status`, { status: 'FINALIZADA' })
     consulta.value = { ...consulta.value, status: 'FINALIZADA' }
     toast.sucesso('Atendimento finalizado!')
@@ -277,7 +467,9 @@ onMounted(async () => {
     const { data } = await api.get(`/consultas/${consultaId.value}`)
     consulta.value = data
     paciente.value = data.paciente
-    desserializarProntuario(data.observacoes)
+    if (['EM_ANDAMENTO', 'FINALIZADA'].includes(data.status)) {
+      await carregarProntuario()
+    }
     await carregarHistorico()
   } catch {
     toast.erro('Consulta não encontrada.')
@@ -597,7 +789,7 @@ onMounted(async () => {
               </div>
             </div>
             <div v-if="diagnosticos.length" class="flex flex-col gap-2">
-              <div v-for="(d, i) in diagnosticos" :key="d.codigo"
+              <div v-for="(d, i) in diagnosticos" :key="d.id ?? i"
                 class="flex items-center gap-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-lg p-3">
                 <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                   :class="d.tipo === 'Principal' ? 'bg-teal-600 text-white' : 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'">
@@ -605,7 +797,7 @@ onMounted(async () => {
                 </span>
                 <span class="font-bold text-xs text-teal-700 dark:text-teal-400 shrink-0">{{ d.codigo }}</span>
                 <span class="text-xs text-slate-700 dark:text-slate-200 flex-1 truncate">{{ d.descricao }}</span>
-                <select v-model="d.tipo"
+                <select v-model="d.tipo" @change="atualizarTipoHipotese(d)"
                   class="text-xs border border-slate-200 dark:border-slate-600 rounded-md px-2 py-1 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 outline-none">
                   <option>Principal</option><option>Secundário</option><option>Descartado</option>
                 </select>
@@ -717,7 +909,7 @@ onMounted(async () => {
               </button>
             </div>
             <div v-if="prescricoes.length" class="flex flex-col gap-3">
-              <div v-for="(p, i) in prescricoes" :key="i"
+              <div v-for="(p, i) in prescricoes" :key="p.id ?? i"
                 class="flex items-start gap-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3">
                 <span class="w-6 h-6 rounded-full bg-teal-600 text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-2.5">{{ i + 1 }}</span>
                 <div class="flex-1 flex flex-col gap-2 min-w-0">

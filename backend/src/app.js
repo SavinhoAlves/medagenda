@@ -14,6 +14,9 @@ const solicitacaoRoutes = require('./routes/solicitacaoRoutes')
 const notificacaoRoutes = require('./routes/notificacaoRoutes')
 const usuarioRoutes     = require('./routes/usuarioRoutes')
 const iaRoutes          = require('./routes/iaRoutes')
+const prontuarioRoutes  = require('./routes/prontuarioRoutes')
+const prontuarioCtrl    = require('./controllers/prontuarioController')
+const authMiddleware    = require('./middlewares/authMiddleware')
 
 const app = express()
 
@@ -40,6 +43,9 @@ app.use('/solicitacoes-exclusao', solicitacaoRoutes)
 app.use('/notificacoes', notificacaoRoutes)
 app.use('/usuarios',    usuarioRoutes)
 app.use('/ia',          iaRoutes)
+app.use('/prontuarios', prontuarioRoutes)
+app.get('/cid10',        authMiddleware, prontuarioCtrl.buscarCid10)
+app.get('/medicamentos', authMiddleware, prontuarioCtrl.buscarMedicamentos)
 
 app.get('/', (req, res) => {
   res.json({ message: 'API MedAgenda funcionando 🚀' })
