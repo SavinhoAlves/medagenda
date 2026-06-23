@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual do Sistema — MedAgenda</title>
+  <style>
+    :root {
+      --primary: #059669;
+      --primary-light: #ecfdf5;
+      --primary-dark: #047857;
+      --accent: #7c3aed;
+      --accent-light: #f5f3ff;
+      --text: #0f172a;
+      --text-sub: #64748b;
+      --border: #e2e8f0;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --info: #3b82f6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    /* ── Layout ── */
+    .layout { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: 280px;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      overflow-y: auto;
+      z-index: 10;
+      padding-bottom: 32px;
+    }
+
+    .sidebar-logo {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sidebar-logo .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--primary), #10b981);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 18px;
+    }
+    .sidebar-logo .logo-text { font-weight: 700; font-size: 16px; color: var(--text); }
+    .sidebar-logo .logo-sub  { font-size: 11px; color: var(--text-sub); }
+
+    .sidebar-section { padding: 12px 12px 4px; }
+    .sidebar-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-sub);
+      padding: 0 8px;
+      margin-bottom: 4px;
+    }
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 7px;
+      text-decoration: none;
+      color: var(--text-sub);
+      font-size: 13px;
+      transition: background 0.15s, color 0.15s;
+      cursor: pointer;
+    }
+    .sidebar-link:hover { background: var(--bg); color: var(--text); }
+    .sidebar-link.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+    .sidebar-link .num {
+      width: 20px; height: 20px;
+      background: var(--border);
+      border-radius: 50%;
+      font-size: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; flex-shrink: 0;
+    }
+
+    .content {
+      margin-left: 280px;
+      flex: 1;
+      padding: 40px 48px;
+      max-width: 960px;
+    }
+
+    /* ── Sections ── */
+    .section {
+      margin-bottom: 72px;
+      scroll-margin-top: 24px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--border);
+    }
+    .section-number {
+      width: 40px; height: 40px;
+      background: var(--primary-light);
+      color: var(--primary);
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .section-title { font-size: 24px; font-weight: 700; color: var(--text); }
+    .section-sub { font-size: 14px; color: var(--text-sub); margin-top: 2px; }
+
+    h3 { font-size: 17px; font-weight: 700; color: var(--text); margin: 28px 0 12px; }
+    h4 { font-size: 14px; font-weight: 600; color: var(--text-sub); margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    p { color: #334155; margin-bottom: 12px; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-admin    { background: #fef3c7; color: #92400e; }
+    .badge-medico   { background: #dbeafe; color: #1e40af; }
+    .badge-operador { background: #f0fdf4; color: #166534; }
+    .badge-todos    { background: #f1f5f9; color: #475569; }
+    .badge-new      { background: var(--primary-light); color: var(--primary); }
+
+    .access-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding: 10px 14px;
+      background: var(--bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .access-label { color: var(--text-sub); font-weight: 500; margin-right: 4px; }
+
+    /* ── Steps ── */
+    .steps { list-style: none; display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+    .step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 12px 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .step-num {
+      width: 26px; height: 26px;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .step-body { flex: 1; }
+    .step-title { font-weight: 600; color: var(--text); font-size: 14px; }
+    .step-desc  { font-size: 13px; color: var(--text-sub); margin-top: 3px; }
+
+    /* ── Screenshot placeholder ── */
+    .screenshot {
+      background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 32px 24px;
+      text-align: center;
+      margin: 20px 0;
+      position: relative;
+    }
+    .screenshot-icon { font-size: 32px; margin-bottom: 8px; }
+    .screenshot-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 4px;
+    }
+    .screenshot-desc { font-size: 12px; color: #94a3b8; }
+    .screenshot-tag {
+      position: absolute;
+      top: 10px; right: 12px;
+      background: #e2e8f0;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+
+    /* ── Video placeholder ── */
+    .video-placeholder {
+      background: linear-gradient(135deg, #1e1b4b, #312e81);
+      border-radius: 12px;
+      padding: 40px 24px;
+      text-align: center;
+      margin: 20px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .video-placeholder::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        45deg, transparent, transparent 10px,
+        rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px
+      );
+    }
+    .video-play { font-size: 48px; margin-bottom: 12px; position: relative; }
+    .video-title { font-size: 15px; font-weight: 700; color: white; position: relative; }
+    .video-desc  { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 6px; position: relative; }
+    .video-tag {
+      position: absolute;
+      top: 12px; right: 14px;
+      background: rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.8);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+
+    /* ── Info boxes ── */
+    .info-box {
+      padding: 14px 16px;
+      border-radius: 8px;
+      margin: 16px 0;
+      font-size: 13px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .info-box.tip     { background: var(--primary-light); border-left: 3px solid var(--primary); }
+    .info-box.warn    { background: #fffbeb; border-left: 3px solid var(--warning); }
+    .info-box.danger  { background: #fef2f2; border-left: 3px solid var(--danger); }
+    .info-box.info    { background: #eff6ff; border-left: 3px solid var(--info); }
+    .info-box .icon   { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .info-box .text   { color: var(--text); line-height: 1.5; }
+    .info-box strong  { font-weight: 700; }
+
+    /* ── Cards ── */
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .card-icon { font-size: 22px; margin-bottom: 8px; }
+    .card-title { font-weight: 600; font-size: 14px; color: var(--text); margin-bottom: 4px; }
+    .card-desc  { font-size: 12px; color: var(--text-sub); line-height: 1.5; }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+    th { background: var(--bg); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-sub); padding: 10px 14px; text-align: left; border-bottom: 2px solid var(--border); }
+    td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: #334155; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg); }
+
+    /* ── Cover ── */
+    .cover {
+      background: linear-gradient(135deg, #064e3b, #059669, #10b981);
+      color: white;
+      padding: 64px 48px;
+      margin: -40px -48px 64px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cover::after {
+      content: '';
+      position: absolute;
+      right: -60px; top: -60px;
+      width: 300px; height: 300px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.06);
+    }
+    .cover-tag   { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.7; margin-bottom: 12px; }
+    .cover-title { font-size: 42px; font-weight: 800; line-height: 1.15; margin-bottom: 12px; }
+    .cover-sub   { font-size: 17px; opacity: 0.85; max-width: 560px; line-height: 1.5; margin-bottom: 24px; }
+    .cover-meta  { font-size: 12px; opacity: 0.6; }
+
+    /* ── Print ── */
+    @media print {
+      .sidebar { display: none; }
+      .content { margin-left: 0; padding: 20px; }
+    }
+
+    /* ── Scrollbar ── */
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .kbd {
+      display: inline-block;
+      padding: 2px 7px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-bottom: 2px solid #94a3b8;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🏥</div>
+      <div>
+        <div class="logo-text">MedAgenda</div>
+        <div class="logo-sub">Manual do Sistema</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Introdução</div>
+      <a class="sidebar-link" href="#visao-geral"><span class="num">1</span> Visão Geral</a>
+      <a class="sidebar-link" href="#perfis"><span class="num">2</span> Perfis de Acesso</a>
+      <a class="sidebar-link" href="#login"><span class="num">3</span> Login</a>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Funcionalidades</div>
+      <a class="sidebar-link" href="#dashboard"><span class="num">4</span> Dashboard</a>
+      <a class="sidebar-link" href="#agenda"><span class="num">5</span> Agenda</a>
+      <a class="sidebar-link" href="#consultas"><span class="num">6</span> Consultas</a>
+      <a class="sidebar-link" href="#atendimento"><span class="num">7</span> Atendimento / EMR</a>
+      <a class="sidebar-link" href="#pacientes"><span class="num">8</span> Pacientes</a>
+      <a class="sidebar-link" href="#convenios"><span class="num">9</span> Convênios</a>
+      <a class="sidebar-link" href="#profissionais"><span class="num">10</span> Profissionais</a>
+      <a class="sidebar-link" href="#especialidades"><span class="num">11</span> Especialidades</a>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Gestão</div>
+      <a class="sidebar-link" href="#solicitacoes"><span class="num">12</span> Solicitações</a>
+      <a class="sidebar-link" href="#notificacoes"><span class="num">13</span> Notificações</a>
+      <a class="sidebar-link" href="#assistente-ia"><span class="num">14</span> Assistente IA</a>
+      <a class="sidebar-link" href="#configuracoes"><span class="num">15</span> Configurações</a>
+    </div>
+  </nav>
+
+  <!-- ── Content ── -->
+  <main class="content">
+
+    <!-- Cover -->
+    <div class="cover">
+      <div class="cover-tag">📋 Documentação Oficial</div>
+      <div class="cover-title">Manual do Sistema<br>MedAgenda</div>
+      <div class="cover-sub">Guia completo de uso do sistema de gestão de clínicas médicas — agendamento, prontuário eletrônico, pacientes e muito mais.</div>
+      <div class="cover-meta">Versão 1.0 · Atualizado em junho de 2026</div>
+    </div>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 1. VISÃO GERAL -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="visao-geral">
+      <div class="section-header">
+        <div class="section-number">1</div>
+        <div>
+          <div class="section-title">Visão Geral</div>
+          <div class="section-sub">O que é o MedAgenda e como ele está organizado</div>
+        </div>
+      </div>
+
+      <p>O <strong>MedAgenda</strong> é um sistema de gestão para clínicas médicas que centraliza agendamentos, prontuários eletrônicos, cadastros de pacientes e controle financeiro em uma única plataforma.</p>
+
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-icon">📅</div>
+          <div class="card-title">Agenda Visual</div>
+          <div class="card-desc">Calendário interativo com arrastar e soltar, encaixes e visualização por profissional.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📋</div>
+          <div class="card-title">Prontuário Eletrônico</div>
+          <div class="card-desc">Registro completo do atendimento com sinais vitais, queixas, condutas e prescrições.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">👥</div>
+          <div class="card-title">Cadastro de Pacientes</div>
+          <div class="card-desc">Ficha completa com dados pessoais, convênios, histórico e observações.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🤖</div>
+          <div class="card-title">Assistente IA</div>
+          <div class="card-desc">IA integrada para sugestões, especificações técnicas e geração de código.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔔</div>
+          <div class="card-title">Notificações</div>
+          <div class="card-desc">Alertas em tempo real para solicitações, alterações e eventos do sistema.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🌙</div>
+          <div class="card-title">Dark / Light Mode</div>
+          <div class="card-desc">Alternância entre tema claro e escuro com um clique, salvo por usuário.</div>
+        </div>
+      </div>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">🖥️</div>
+        <div class="screenshot-label">Tela inicial — Dashboard do Administrador</div>
+        <div class="screenshot-desc">Capture a tela completa do dashboard após login como admin · Use Win+Shift+S</div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 2. PERFIS DE ACESSO -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="perfis">
+      <div class="section-header">
+        <div class="section-number">2</div>
+        <div>
+          <div class="section-title">Perfis de Acesso</div>
+          <div class="section-sub">O que cada tipo de usuário pode fazer</div>
+        </div>
+      </div>
+
+      <p>O MedAgenda possui três perfis de acesso com permissões distintas:</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Funcionalidade</th>
+            <th><span class="badge badge-admin">👑 Admin</span></th>
+            <th><span class="badge badge-medico">🩺 Médico</span></th>
+            <th><span class="badge badge-operador">🖥️ Operador</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Dashboard com estatísticas</td><td>✅</td><td>❌</td><td>❌</td></tr>
+          <tr><td>Agenda</td><td>✅</td><td>✅</td><td>✅</td></tr>
+          <tr><td>Minhas Consultas</td><td>✅ (todas)</td><td>✅ (próprias)</td><td>✅</td></tr>
+          <tr><td>Iniciar Atendimento / EMR</td><td>✅</td><td>✅</td><td>❌</td></tr>
+          <tr><td>Cadastro de Pacientes</td><td>✅</td><td>✅</td><td>✅</td></tr>
+          <tr><td>Convênios</td><td>✅</td><td>❌</td><td>✅</td></tr>
+          <tr><td>Profissionais</td><td>✅</td><td>❌</td><td>❌</td></tr>
+          <tr><td>Especialidades</td><td>✅</td><td>❌</td><td>❌</td></tr>
+          <tr><td>Solicitações de Exclusão</td><td>✅ (aprovar)</td><td>✅ (solicitar)</td><td>✅ (solicitar)</td></tr>
+          <tr><td>Notificações</td><td>✅</td><td>✅</td><td>✅</td></tr>
+          <tr><td>Assistente IA</td><td>✅</td><td>✅</td><td>✅</td></tr>
+        </tbody>
+      </table>
+
+      <div class="info-box tip">
+        <div class="icon">💡</div>
+        <div class="text"><strong>Dica:</strong> Ao tentar acessar uma página sem permissão, o sistema redireciona automaticamente para a página correta do seu perfil. Não é necessário nenhuma ação manual.</div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 3. LOGIN -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="login">
+      <div class="section-header">
+        <div class="section-number">3</div>
+        <div>
+          <div class="section-title">Login</div>
+          <div class="section-sub">Como acessar o sistema</div>
+        </div>
+      </div>
+
+      <p>Acesse o sistema pelo navegador em <strong>http://localhost:3000</strong> (ambiente local) ou pelo endereço fornecido pelo administrador.</p>
+
+      <ol class="steps">
+        <li class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Informe seu e-mail</div>
+            <div class="step-desc">Digite o e-mail cadastrado pelo administrador no campo "E-mail".</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Informe sua senha</div>
+            <div class="step-desc">Digite sua senha. Use o ícone de olho para mostrar/ocultar.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Clique em "Entrar"</div>
+            <div class="step-desc">O sistema detecta seu cargo e redireciona automaticamente: <br>
+              <strong>Admin</strong> → Dashboard &nbsp;|&nbsp; <strong>Médico</strong> → Agenda &nbsp;|&nbsp; <strong>Operador</strong> → Agenda
+            </div>
+          </div>
+        </li>
+      </ol>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">🔐</div>
+        <div class="screenshot-label">Tela de Login</div>
+        <div class="screenshot-desc">Capture a tela de login em http://localhost:3000/login nos temas claro e escuro</div>
+      </div>
+
+      <div class="video-placeholder">
+        <div class="video-tag">Vídeo</div>
+        <div class="video-play">▶️</div>
+        <div class="video-title">Como fazer login e navegar pelo sistema</div>
+        <div class="video-desc">Grave: abrir o sistema → tela de login → entrar como admin → navegar pelos menus · Duração sugerida: 1 min</div>
+      </div>
+
+      <h3>Sair do sistema</h3>
+      <p>Clique na foto/inicial do seu nome no canto superior direito do menu e selecione <strong>"Sair"</strong>. O sistema limpa a sessão e retorna para a tela de login.</p>
+
+      <div class="info-box warn">
+        <div class="icon">⚠️</div>
+        <div class="text"><strong>Sessão:</strong> Por segurança, a sessão expira após inatividade. Se sua tela voltar ao login inesperadamente, basta autenticar novamente — seus dados não são perdidos.</div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 4. DASHBOARD -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="dashboard">
+      <div class="section-header">
+        <div class="section-number">4</div>
+        <div>
+          <div class="section-title">Dashboard</div>
+          <div class="section-sub">Visão geral das métricas da clínica</div>
+        </div>
+      </div>
+
+      <div class="access-row">
+        <span class="access-label">Acesso:</span>
+        <span class="badge badge-admin">👑 Admin</span>
+      </div>
+
+      <p>O Dashboard é a tela inicial do administrador e apresenta um resumo visual do funcionamento da clínica no dia.</p>
+
+      <h3>O que você vê no Dashboard</h3>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-icon">📊</div>
+          <div class="card-title">Total de Consultas</div>
+          <div class="card-desc">Quantidade total de consultas registradas no sistema.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📅</div>
+          <div class="card-title">Consultas Hoje</div>
+          <div class="card-desc">Número de consultas agendadas para o dia atual.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">👥</div>
+          <div class="card-title">Total de Pacientes</div>
+          <div class="card-desc">Pacientes cadastrados ativos no sistema.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🩺</div>
+          <div class="card-title">Profissionais Ativos</div>
+          <div class="card-desc">Médicos e especialistas cadastrados e ativos.</div>
+        </div>
+      </div>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">📊</div>
+        <div class="screenshot-label">Dashboard — Painel de métricas</div>
+        <div class="screenshot-desc">Capture o dashboard completo com os cards de estatísticas visíveis</div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 5. AGENDA -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="agenda">
+      <div class="section-header">
+        <div class="section-number">5</div>
+        <div>
+          <div class="section-title">Agenda</div>
+          <div class="section-sub">Calendário de consultas e agendamentos</div>
+        </div>
+      </div>
+
+      <div class="access-row">
+        <span class="access-label">Acesso:</span>
+        <span class="badge badge-todos">Todos os perfis</span>
+      </div>
+
+      <p>A Agenda é o coração do sistema. Exibe todas as consultas em um calendário interativo, com suporte a arrastar, soltar e criar novos agendamentos diretamente no calendário.</p>
+
+      <h3>Criar uma nova consulta pela agenda</h3>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Clique em um horário livre no calendário</div>
+            <div class="step-desc">O modal de nova consulta abre automaticamente com a data e hora pré-preenchidas.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Selecione o paciente</div>
+            <div class="step-desc">Use o campo de busca com typeahead — comece a digitar o nome do paciente e selecione na lista.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Selecione o profissional</div>
+            <div class="step-desc">Escolha o médico responsável pela consulta. O valor da consulta é preenchido automaticamente.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Ajuste data, hora e tipo</div>
+            <div class="step-desc">Configure se é encaixe, retorno, cor do evento e observações.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">Clique em "Salvar"</div>
+            <div class="step-desc">A consulta aparece imediatamente no calendário.</div>
+          </div>
+        </li>
+      </ol>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">📅</div>
+        <div class="screenshot-label">Agenda — Calendário com consultas</div>
+        <div class="screenshot-desc">Capture o calendário com eventos visíveis na visualização semanal</div>
+      </div>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">➕</div>
+        <div class="screenshot-label">Modal de Nova Consulta</div>
+        <div class="screenshot-desc">Capture o modal aberto com todos os campos preenchidos</div>
+      </div>
+
+      <div class="video-placeholder">
+        <div class="video-tag">Vídeo</div>
+        <div class="video-play">▶️</div>
+        <div class="video-title">Como agendar uma consulta</div>
+        <div class="video-desc">Grave: clicar no calendário → preencher modal → salvar → evento aparece na agenda · Duração sugerida: 1 min 30 s</div>
+      </div>
+
+      <h3>Arrastar e soltar</h3>
+      <p>Consultas podem ser <strong>movidas</strong> arrastando o evento para outro horário ou dia no calendário. O sistema atualiza automaticamente a data e hora da consulta.</p>
+
+      <h3>Status das consultas</h3>
+      <table>
+        <thead><tr><th>Status</th><th>Significado</th><th>Cor</th></tr></thead>
+        <tbody>
+          <tr><td>Agendada</td><td>Consulta marcada, aguardando confirmação</td><td>🟡 Amarelo</td></tr>
+          <tr><td>Confirmada</td><td>Paciente confirmou presença</td><td>🔵 Azul</td></tr>
+          <tr><td>Em andamento</td><td>Atendimento iniciado pelo médico</td><td>🟢 Verde</td></tr>
+          <tr><td>Finalizada</td><td>Atendimento concluído</td><td>⚫ Cinza</td></tr>
+          <tr><td>Cancelada</td><td>Consulta cancelada</td><td>🔴 Vermelho</td></tr>
+          <tr><td>Faltou</td><td>Paciente não compareceu</td><td>🟠 Laranja</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 6. CONSULTAS -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="consultas">
+      <div class="section-header">
+        <div class="section-number">6</div>
+        <div>
+          <div class="section-title">Consultas</div>
+          <div class="section-sub">Lista e gestão de todas as consultas</div>
+        </div>
+      </div>
+
+      <div class="access-row">
+        <span class="access-label">Acesso:</span>
+        <span class="badge badge-todos">Todos os perfis</span>
+        <span style="font-size:12px;color:#94a3b8;margin-left:4px">— Médico vê apenas as suas</span>
+      </div>
+
+      <p>A listagem de consultas permite filtrar, buscar e gerenciar todas as consultas cadastradas, com acesso rápido ao prontuário eletrônico.</p>
+
+      <h3>Criar consulta manualmente</h3>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Acesse "Minhas Consultas" no menu</div>
+            <div class="step-desc">Clique em "Minhas Consultas" no menu superior.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Clique em "Nova Consulta"</div>
+            <div class="step-desc">Botão no canto superior direito da listagem.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Preencha os dados e salve</div>
+            <div class="step-desc">Paciente, profissional, data, hora e tipo da consulta.</div>
+          </div>
+        </li>
+      </ol>
+
+      <h3>Solicitar exclusão de uma consulta</h3>
+      <p>Consultas não podem ser excluídas diretamente. Usuários não-admin devem <strong>solicitar a exclusão</strong>, que será avaliada pelo administrador.</p>
+
+      <div class="info-box warn">
+        <div class="icon">⚠️</div>
+        <div class="text"><strong>Atenção:</strong> A exclusão de consultas é irreversível. O administrador deve avaliar o motivo antes de aprovar.</div>
+      </div>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">📋</div>
+        <div class="screenshot-label">Listagem de Consultas</div>
+        <div class="screenshot-desc">Capture a lista com consultas de diferentes status visíveis</div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 7. ATENDIMENTO / EMR -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="atendimento">
+      <div class="section-header">
+        <div class="section-number">7</div>
+        <div>
+          <div class="section-title">Atendimento / Prontuário</div>
+          <div class="section-sub">Prontuário Eletrônico do Paciente (EMR)</div>
+        </div>
+      </div>
+
+      <div class="access-row">
+        <span class="access-label">Acesso:</span>
+        <span class="badge badge-admin">👑 Admin</span>
+        <span class="badge badge-medico">🩺 Médico</span>
+      </div>
+
+      <p>O prontuário eletrônico é onde o médico registra todas as informações do atendimento. É acessado a partir de uma consulta com status <strong>Agendada</strong> ou <strong>Confirmada</strong>.</p>
+
+      <h3>Iniciar um atendimento</h3>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Abra a consulta</div>
+            <div class="step-desc">Clique no evento da consulta na Agenda ou acesse pela lista de Consultas.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Clique em "Iniciar Atendimento"</div>
+            <div class="step-desc">O status muda para "Em andamento" e o prontuário é aberto em tela cheia.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Preencha o prontuário</div>
+            <div class="step-desc">Registre sinais vitais, queixa principal, histórico, exame físico, hipótese diagnóstica e conduta.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Finalize o atendimento</div>
+            <div class="step-desc">Clique em "Finalizar Atendimento" — o status muda para "Finalizada" e o prontuário é salvo.</div>
+          </div>
+        </li>
+      </ol>
+
+      <h3>Campos do prontuário</h3>
+      <table>
+        <thead><tr><th>Campo</th><th>Descrição</th></tr></thead>
+        <tbody>
+          <tr><td>Sinais Vitais</td><td>PA, FC, SpO₂, temperatura, peso, altura</td></tr>
+          <tr><td>Queixa Principal</td><td>Motivo da consulta relatado pelo paciente</td></tr>
+          <tr><td>História da Doença Atual</td><td>Evolução dos sintomas</td></tr>
+          <tr><td>Antecedentes</td><td>Histórico médico, cirúrgico e familiar</td></tr>
+          <tr><td>Exame Físico</td><td>Achados do exame físico geral e específico</td></tr>
+          <tr><td>Hipótese Diagnóstica</td><td>CID e diagnóstico provável</td></tr>
+          <tr><td>Conduta</td><td>Prescrição, solicitação de exames, retorno</td></tr>
+          <tr><td>Observações</td><td>Notas adicionais do médico</td></tr>
+        </tbody>
+      </table>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">🏥</div>
+        <div class="screenshot-label">Prontuário Eletrônico (EMR)</div>
+        <div class="screenshot-desc">Capture a tela completa do prontuário com os campos de sinais vitais e campos clínicos visíveis</div>
+      </div>
+
+      <div class="video-placeholder">
+        <div class="video-tag">Vídeo</div>
+        <div class="video-play">▶️</div>
+        <div class="video-title">Fluxo completo de atendimento</div>
+        <div class="video-desc">Grave: agenda → abrir consulta → iniciar atendimento → preencher prontuário → finalizar · Duração sugerida: 2 min</div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 8. PACIENTES -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="pacientes">
+      <div class="section-header">
+        <div class="section-number">8</div>
+        <div>
+          <div class="section-title">Pacientes</div>
+          <div class="section-sub">Cadastro e gestão de pacientes</div>
+        </div>
+      </div>
+
+      <div class="access-row">
+        <span class="access-label">Acesso:</span>
+        <span class="badge badge-todos">Todos os perfis</span>
+      </div>
+
+      <p>O módulo de pacientes permite cadastrar, editar e consultar a ficha completa de cada paciente, incluindo dados pessoais, convênios e histórico de consultas.</p>
+
+      <h3>Cadastrar novo paciente</h3>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Acesse "Pacientes" no menu</div>
+            <div class="step-desc">Clique em "Pacientes" na barra de navegação superior.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Clique em "Novo Paciente"</div>
+            <div class="step-desc">Botão verde no canto superior direito da listagem.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Preencha a ficha</div>
+            <div class="step-desc">Nome completo (obrigatório), CPF, data de nascimento, telefone, e-mail e endereço.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Adicione convênios (opcional)</div>
+            <div class="step-desc">Na aba "Convênios", vincule o convênio do paciente com o número da carteirinha.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">Salve o cadastro</div>
+            <div class="step-desc">Clique em "Salvar Paciente". O paciente já fica disponível para agendamentos.</div>
+          </div>
+        </li>
+      </ol>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">👥</div>
+        <div class="screenshot-label">Listagem de Pacientes</div>
+        <div class="screenshot-desc">Capture a lista com pelo menos 3–4 pacientes cadastrados</div>
+      </div>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">📝</div>
+        <div class="screenshot-label">Formulário de Cadastro de Paciente</div>
+        <div class="screenshot-desc">Capture o formulário com os campos de dados pessoais preenchidos</div>
+      </div>
+
+      <h3>Campos disponíveis na ficha</h3>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-icon">👤</div>
+          <div class="card-title">Dados Pessoais</div>
+          <div class="card-desc">Nome, CPF, RG, CNS, data de nascimento, sexo, estado civil, etnia.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📞</div>
+          <div class="card-title">Contato</div>
+          <div class="card-desc">Celular, telefone residencial, telefone do trabalho, e-mail.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🏠</div>
+          <div class="card-title">Endereço</div>
+          <div class="card-desc">CEP, logradouro, número, complemento, bairro, cidade, estado.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🏥</div>
+          <div class="card-title">Convênios</div>
+          <div class="card-desc">Múltiplos convênios com número de carteirinha individual.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 9. CONVÊNIOS -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="convenios">
+      <div class="section-header">
+        <div class="section-number">9</div>
+        <div>
+          <div class="section-title">Convênios</div>
+          <div class="section-sub">Gestão de planos de saúde e convênios aceitos</div>
+        </div>
+      </div>
+
+      <div class="access-row">
+        <span class="access-label">Acesso:</span>
+        <span class="badge badge-admin">👑 Admin</span>
+        <span class="badge badge-operador">🖥️ Operador</span>
+      </div>
+
+      <p>Cadastre os convênios e planos de saúde aceitos pela clínica. Os convênios cadastrados ficam disponíveis para vinculação nos cadastros de pacientes.</p>
+
+      <h3>Cadastrar novo convênio</h3>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Acesse "Convênios" no menu</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Clique em "Novo Convênio"</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Informe o nome do convênio e salve</div>
+            <div class="step-desc">Ex: Unimed, Bradesco Saúde, Amil, SulAmérica.</div>
+          </div>
+        </li>
+      </ol>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">🏥</div>
+        <div class="screenshot-label">Listagem de Convênios</div>
+        <div class="screenshot-desc">Capture a lista de convênios cadastrados</div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 10. PROFISSIONAIS -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="profissionais">
+      <div class="section-header">
+        <div class="section-number">10</div>
+        <div>
+          <div class="section-title">Profissionais</div>
+          <div class="section-sub">Cadastro de médicos e especialistas</div>
+        </div>
+      </div>
+
+      <div class="access-row">
+        <span class="access-label">Acesso:</span>
+        <span class="badge badge-admin">👑 Admin</span>
+      </div>
+
+      <p>Cadastre os médicos e profissionais de saúde da clínica. Cada profissional é vinculado a uma especialidade e tem seus valores de consulta configurados individualmente.</p>
+
+      <h3>Cadastrar novo profissional</h3>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Preencha os dados pessoais</div>
+            <div class="step-desc">Nome, CPF, telefone, e-mail e registro no conselho (CRM, CRO etc.).</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Selecione a especialidade</div>
+            <div class="step-desc">Vincule o profissional a uma das especialidades cadastradas no sistema.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Configure os valores</div>
+            <div class="step-desc">Informe o valor da consulta e o valor do retorno. Esses valores são sugeridos automaticamente ao agendar.</div>
+          </div>
+        </li>
+      </ol>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">🩺</div>
+        <div class="screenshot-label">Listagem de Profissionais</div>
+        <div class="screenshot-desc">Capture a lista de profissionais com especialidades e valores visíveis</div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 11. ESPECIALIDADES -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="especialidades">
+      <div class="section-header">
+        <div class="section-number">11</div>
+        <div>
+          <div class="section-title">Especialidades</div>
+          <div class="section-sub">Cadastro das especialidades médicas da clínica</div>
+        </div>
+      </div>
+
+      <div class="access-row">
+        <span class="access-label">Acesso:</span>
+        <span class="badge badge-admin">👑 Admin</span>
+      </div>
+
+      <p>Especialidades são as áreas médicas oferecidas pela clínica (ex: Cardiologia, Ortopedia, Pediatria). Todo profissional deve ser vinculado a uma especialidade.</p>
+
+      <h3>Cadastrar especialidade</h3>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Informe o nome e sigla</div>
+            <div class="step-desc">Ex: Nome: "Cardiologia" · Sigla: "CARDIO" · Conselho: CRM</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Adicione uma descrição (opcional)</div>
+            <div class="step-desc">Breve descrição da especialidade para referência interna.</div>
+          </div>
+        </li>
+      </ol>
+
+      <div class="info-box info">
+        <div class="icon">ℹ️</div>
+        <div class="text"><strong>Ordem recomendada:</strong> Cadastre as Especialidades <em>antes</em> dos Profissionais, pois cada profissional precisa ser vinculado a uma especialidade existente.</div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 12. SOLICITAÇÕES DE EXCLUSÃO -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="solicitacoes">
+      <div class="section-header">
+        <div class="section-number">12</div>
+        <div>
+          <div class="section-title">Solicitações de Exclusão</div>
+          <div class="section-sub">Fluxo de aprovação para exclusão de consultas</div>
+        </div>
+      </div>
+
+      <div class="access-row">
+        <span class="access-label">Solicitar:</span>
+        <span class="badge badge-todos">Todos os perfis</span>
+        &nbsp;&nbsp;
+        <span class="access-label">Aprovar:</span>
+        <span class="badge badge-admin">👑 Admin</span>
+      </div>
+
+      <p>Consultas não podem ser excluídas diretamente para preservar o histórico. O processo requer uma solicitação com motivo, avaliada e aprovada pelo administrador.</p>
+
+      <h3>Como solicitar a exclusão de uma consulta</h3>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Abra a consulta que deseja excluir</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Clique em "Solicitar Exclusão"</div>
+            <div class="step-desc">Disponível no modal da consulta ou na listagem.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Informe o motivo</div>
+            <div class="step-desc">Descreva o motivo da exclusão. Isso é obrigatório e fica registrado.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Aguarde aprovação</div>
+            <div class="step-desc">O admin recebe uma notificação e avalia a solicitação. Após aprovação, a consulta é excluída automaticamente.</div>
+          </div>
+        </li>
+      </ol>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">🗑️</div>
+        <div class="screenshot-label">Painel de Solicitações de Exclusão (Admin)</div>
+        <div class="screenshot-desc">Capture o painel com solicitações pendentes visíveis e os botões de Aprovar/Rejeitar</div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 13. NOTIFICAÇÕES -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="notificacoes">
+      <div class="section-header">
+        <div class="section-number">13</div>
+        <div>
+          <div class="section-title">Notificações</div>
+          <div class="section-sub">Alertas e avisos do sistema em tempo real</div>
+        </div>
+      </div>
+
+      <div class="access-row">
+        <span class="access-label">Acesso:</span>
+        <span class="badge badge-todos">Todos os perfis</span>
+      </div>
+
+      <p>O sistema envia notificações automáticas para eventos importantes. O ícone de sino no menu superior exibe o número de notificações não lidas.</p>
+
+      <h3>Tipos de notificação</h3>
+      <table>
+        <thead><tr><th>Evento</th><th>Quem recebe</th></tr></thead>
+        <tbody>
+          <tr><td>Nova solicitação de exclusão</td><td>Admin</td></tr>
+          <tr><td>Solicitação aprovada/rejeitada</td><td>Solicitante</td></tr>
+          <tr><td>Nova consulta agendada</td><td>Operadores</td></tr>
+          <tr><td>Aviso geral da clínica</td><td>Todos</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Marcar como lida</h3>
+      <p>Clique no sino no menu superior para abrir o painel de notificações. Clique em uma notificação individual para marcá-la como lida, ou use "Marcar todas como lidas".</p>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">🔔</div>
+        <div class="screenshot-label">Painel de Notificações</div>
+        <div class="screenshot-desc">Capture o dropdown de notificações aberto com algumas notificações não lidas</div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 14. ASSISTENTE IA -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="assistente-ia">
+      <div class="section-header">
+        <div class="section-number">14</div>
+        <div>
+          <div class="section-title">Assistente IA <span class="badge badge-new" style="vertical-align:middle;margin-left:6px">Novo</span></div>
+          <div class="section-sub">Inteligência artificial integrada ao sistema</div>
+        </div>
+      </div>
+
+      <div class="access-row">
+        <span class="access-label">Acesso:</span>
+        <span class="badge badge-todos">Todos os perfis</span>
+      </div>
+
+      <p>O botão roxo <strong>✦</strong> no canto inferior direito da tela abre o Assistente IA — uma IA integrada ao sistema que pode ajudar com dúvidas, sugestões e até gerar código.</p>
+
+      <h3>Como acessar</h3>
+      <p>Clique no botão <strong style="color:#7c3aed">✦ Assistente IA</strong> no canto inferior direito de qualquer página. O painel desliza da direita.</p>
+
+      <h3>Os 4 modos do assistente</h3>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-icon">💬</div>
+          <div class="card-title">Chat</div>
+          <div class="card-desc">Converse livremente, tire dúvidas e envie sugestões de melhoria. Sugestões podem ser salvas no banco de dados com um clique.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📄</div>
+          <div class="card-title">Specs</div>
+          <div class="card-desc">Descreva uma nova funcionalidade e a IA gera uma especificação técnica completa em Markdown com telas, regras, API e banco de dados.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">❓</div>
+          <div class="card-title">Ajuda</div>
+          <div class="card-desc">A IA sabe em qual página você está e seu cargo. Tire dúvidas sobre como usar o sistema no contexto atual.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">💻</div>
+          <div class="card-title">Código</div>
+          <div class="card-desc">Para desenvolvedores: descreva uma feature e a IA gera o código Vue/Node.js completo seguindo os padrões do projeto.</div>
+        </div>
+      </div>
+
+      <h3>Salvar uma sugestão</h3>
+      <ol class="steps">
+        <li class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Abra o assistente no modo "Chat"</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Descreva sua sugestão</div>
+            <div class="step-desc">Ex: "Seria útil ter um relatório de consultas por período com filtro por profissional."</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Após a resposta da IA, clique em "Salvar sugestão"</div>
+            <div class="step-desc">Um modal solicita título e descrição — ambos pré-preenchidos para facilitar.</div>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Confirme o salvamento</div>
+            <div class="step-desc">A sugestão fica registrada no banco com status "Pendente" para avaliação do admin.</div>
+          </div>
+        </li>
+      </ol>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">🤖</div>
+        <div class="screenshot-label">Assistente IA — Painel aberto no modo Chat</div>
+        <div class="screenshot-desc">Capture o painel lateral aberto com uma conversa em andamento</div>
+      </div>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">📄</div>
+        <div class="screenshot-label">Modo Specs — Especificação gerada</div>
+        <div class="screenshot-desc">Capture uma resposta de especificação técnica em Markdown com as seções expandidas</div>
+      </div>
+
+      <div class="video-placeholder">
+        <div class="video-tag">Vídeo</div>
+        <div class="video-play">▶️</div>
+        <div class="video-title">Demonstração do Assistente IA</div>
+        <div class="video-desc">Grave: abrir o painel → modo Chat → fazer pergunta → salvar sugestão → modo Specs → gerar especificação · Duração sugerida: 2 min</div>
+      </div>
+
+      <div class="info-box warn">
+        <div class="icon">⚠️</div>
+        <div class="text"><strong>Requisito:</strong> O assistente IA requer uma chave de API da Anthropic com créditos disponíveis configurada no servidor. Sem créditos, o painel mostra uma mensagem de erro. Acesse <strong>console.anthropic.com</strong> para gerenciar os créditos.</div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- 15. CONFIGURAÇÕES -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="section" id="configuracoes">
+      <div class="section-header">
+        <div class="section-number">15</div>
+        <div>
+          <div class="section-title">Configurações</div>
+          <div class="section-sub">Personalização e preferências do sistema</div>
+        </div>
+      </div>
+
+      <div class="access-row">
+        <span class="access-label">Acesso:</span>
+        <span class="badge badge-todos">Todos os perfis</span>
+      </div>
+
+      <h3>Tema claro / escuro</h3>
+      <p>Clique no ícone de <strong>sol/lua</strong> no menu superior para alternar entre tema claro e escuro. A preferência é salva automaticamente no seu navegador.</p>
+
+      <div class="screenshot">
+        <div class="screenshot-tag">Screenshot</div>
+        <div class="screenshot-icon">🌙</div>
+        <div class="screenshot-label">Comparação Tema Claro vs. Escuro</div>
+        <div class="screenshot-desc">Capture a mesma tela (ex: Agenda) nos dois temas lado a lado</div>
+      </div>
+
+      <h3>Atalhos de teclado</h3>
+      <table>
+        <thead><tr><th>Ação</th><th>Atalho</th></tr></thead>
+        <tbody>
+          <tr><td>Enviar mensagem na IA</td><td><span class="kbd">Enter</span></td></tr>
+          <tr><td>Nova linha na IA</td><td><span class="kbd">Shift</span> + <span class="kbd">Enter</span></td></tr>
+          <tr><td>Fechar modais</td><td><span class="kbd">Esc</span></td></tr>
+        </tbody>
+      </table>
+
+      <hr />
+
+      <h3>Suporte técnico</h3>
+      <p>Em caso de dúvidas ou problemas, utilize o <strong>Assistente IA</strong> no modo "Ajuda" ou entre em contato com o administrador do sistema.</p>
+
+      <div class="info-box tip">
+        <div class="icon">💡</div>
+        <div class="text"><strong>Dica para capturas de tela:</strong> Use <span class="kbd">Win</span> + <span class="kbd">Shift</span> + <span class="kbd">S</span> para capturar regiões específicas da tela no Windows. As imagens vão para a área de transferência e podem ser coladas diretamente neste documento.</div>
+      </div>
+
+      <div class="info-box info">
+        <div class="icon">🎥</div>
+        <div class="text"><strong>Dica para vídeos:</strong> Use o <strong>Loom</strong> (loom.com — gratuito) para gravar a tela e gerar automaticamente um link compartilhável. Ou use <span class="kbd">Win</span> + <span class="kbd">G</span> para abrir o Xbox Game Bar e gravar a tela sem instalar nada.</div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // Active sidebar link on scroll
+  const links = document.querySelectorAll('.sidebar-link');
+  const sections = document.querySelectorAll('.section');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const active = document.querySelector(`.sidebar-link[href="#${entry.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { threshold: 0.3 });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>
