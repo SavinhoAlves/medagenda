@@ -23,7 +23,7 @@ const entrar = async () => {
     const sucesso = await authStore.login(email.value, senha.value)
     if (sucesso) {
       const cargo = authStore.usuario?.cargo
-      await navigateTo(cargo === 'operador' ? '/agenda' : '/dashboard')
+      await navigateTo(cargo === 'operador' || cargo === 'medico' ? '/agenda' : '/dashboard')
     }
   } catch (error) {
     if (error.response) {

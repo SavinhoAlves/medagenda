@@ -5,7 +5,7 @@ export default defineNuxtRouteMiddleware(() => {
     const auth = useAuthStore()
     const cargo = auth.usuario?.cargo
     if (cargo && cargo !== 'admin') {
-      return navigateTo(cargo === 'medico' ? '/agenda' : '/agenda')
+      return navigateTo('/agenda')
     }
   }
 })

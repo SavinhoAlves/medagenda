@@ -6,7 +6,7 @@ import { CalendarDays, Plus, Users, ArrowRight } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'dashboard',
-  middleware: ['auth', 'nao-operador']
+  middleware: ['auth', 'apenas-admin']
 })
 
 useHead({ title: 'Dashboard' })

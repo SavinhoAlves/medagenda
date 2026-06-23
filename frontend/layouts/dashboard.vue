@@ -9,35 +9,23 @@
   </div>
   <ToastContainer />
   <UiConfirmDialog />
+  <AIAssistant />
 </template>
 
 <script setup>
 import Header from '~/components/layout/Header.vue'
 import ToastContainer from '~/components/ToastContainer.vue'
+import AIAssistant from '~/components/AIAssistant.vue'
 </script>
 
 <style>
-:root {
-  --topbar-h:      64px;
-  --bg-app:        #f8fafc;
-  --bg-card:       #ffffff;
-  --border-color:  #e2e8f0;
-  --text-main:     #0f172a;
-  --text-sub:      #64748b;
-  --primary:       #059669;
-  --primary-hover: #047857;
-  --primary-bg:    #ecfdf5;
-  --font-title:    'Plus Jakarta Sans', sans-serif;
-  --font-body:     'Inter', sans-serif;
-}
-
 *, *::before, *::after { box-sizing: border-box; }
 
 body {
   margin: 0;
   background: var(--bg-app);
   color: var(--text-main);
-  font-family: var(--font-body);
+  font-family: 'Inter', sans-serif;
 }
 
 .app-shell {

@@ -55,7 +55,10 @@ function formatLocal(date) {
 
 function podeSelecionar(info) {
   if (props.isAdmin) return true
-  return info.start >= new Date()
+  // Permite selecionar qualquer horário do dia atual inclusive passados
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  return info.start >= hoje
 }
 
 const calendarOptions = ref({
@@ -106,8 +109,12 @@ const calendarOptions = ref({
       calendarRef.value?.getApi().changeView('timeGridDay', info.date)
       return
     }
-    if (!props.isAdmin && info.date < new Date()) {
-      toast.erro('Não é permitido agendar em horários passados.')
+    // Permite agendamento em qualquer horário de hoje (inclusive passado)
+    // Só bloqueia dias anteriores ao dia atual
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    if (!props.isAdmin && info.date < hoje) {
+      toast.erro('Não é permitido agendar em dias anteriores ao dia atual.')
       return
     }
     const fim = new Date(info.date.getTime() + 30 * 60 * 1000)

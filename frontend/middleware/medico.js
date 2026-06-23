@@ -1,8 +1,10 @@
 import { useAuthStore } from '@/stores/auth'
 
 export default defineNuxtRouteMiddleware(() => {
-  const auth = useAuthStore()
-  if (auth.usuario?.cargo !== 'medico') {
-    return navigateTo('/dashboard')
+  if (!process.client) return
+  const cargo = useAuthStore().usuario?.cargo
+  if (!cargo) return
+  if (cargo !== 'medico' && cargo !== 'admin') {
+    return navigateTo('/agenda')
   }
 })

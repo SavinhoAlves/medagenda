@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, reactive, computed, nextTick } from 'vue'
+import { ref, watch, reactive, computed } from 'vue'
 import api from '../../services/api'
 import { useCurrentUser } from '~/composables/useCurrentUser'
 
@@ -14,8 +14,10 @@ const props = defineProps({
 const emit = defineEmits(['fechar', 'salvar', 'excluido', 'iniciar'])
 
 const router = useRouter()
-const { isAdmin: isAdminUser, usuario } = useCurrentUser()
-const isMedico = usuario?.cargo === 'medico'
+const { usuario } = useCurrentUser()
+const auth = useAuthStore()
+const isAdminUser = computed(() => auth.isAdmin)
+const isMedico    = computed(() => auth.isMedico)
 
 const listaPacientes    = ref([])
 const listaProfissionais = ref([])
@@ -49,12 +51,9 @@ const localForm = reactive({
 const modoEdicao = computed(() => !!localForm.id)
 
 const podeIniciarConsulta = computed(() => {
-  if (localForm.status !== 'AGENDADA' && localForm.status !== 'CONFIRMADA') return false
-  if (!localForm.dataInicio) return false
-  if (isAdminUser || isMedico) return true
-  const agora  = Date.now()
-  const inicio = new Date(localForm.dataInicio).getTime()
-  return agora >= inicio - 30 * 60 * 1000 && agora <= inicio + 4 * 60 * 60 * 1000
+  const statusOk = ['AGENDADA', 'CONFIRMADA', 'EM_ANDAMENTO'].includes(localForm.status)
+  if (!statusOk || !localForm.dataInicio) return false
+  return isAdminUser.value || isMedico.value
 })
 const conveniosDisponiveis = computed(() => listaConvenios.value)
 
@@ -283,7 +282,7 @@ async function handleIniciar() {
   try {
     await api.patch(`/consultas/${localForm.id}/status`, { status: 'EM_ANDAMENTO' })
     emit('fechar')
-    await router.push(`/consultas/${localForm.id}/atendimento`)
+    await router.push(`/consultas/${localForm.id}`)
   } catch {
     // emit handled by parent
     emit('iniciar', { id: localForm.id })
@@ -407,6 +406,16 @@ async function enviarSolicitacao() {
           <p class="detail-obs-text">{{ localForm.observacoes }}</p>
         </div>
 
+        <!-- Botão principal de atendimento -->
+        <div v-if="podeIniciarConsulta" class="iniciar-wrap">
+          <button type="button" class="btn-iniciar-atend" @click="handleIniciar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/>
+            </svg>
+            {{ localForm.status === 'EM_ANDAMENTO' ? 'Continuar Atendimento' : 'Iniciar Atendimento' }}
+          </button>
+        </div>
+
         <div class="modal-footer">
           <button type="button" class="btn-excluir-link" @click="abrirExcluir">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
@@ -431,12 +440,6 @@ async function enviarSolicitacao() {
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
               Editar
-            </button>
-            <button v-if="podeIniciarConsulta" type="button" class="btn-iniciar-atend" @click="handleIniciar">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/>
-              </svg>
-              Iniciar Atendimento
             </button>
           </div>
         </div>
@@ -899,16 +902,21 @@ async function enviarSolicitacao() {
 }
 .btn-editar:hover { background: #f1f5f9; }
 
+.iniciar-wrap {
+  margin: 0 0 14px;
+}
+
 .btn-iniciar-atend {
-  display: flex; align-items: center; gap: 7px;
-  background: #059669; border: none; border-radius: 8px;
-  padding: 10px 20px; font-size: 13.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%;
+  background: #059669; border: none; border-radius: 10px;
+  padding: 13px 20px; font-size: 14.5px; font-weight: 700;
   font-family: 'Plus Jakarta Sans', sans-serif; color: #ffffff;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.28);
+  box-shadow: 0 4px 16px rgba(5, 150, 105, 0.32);
   transition: all 0.15s;
 }
-.btn-iniciar-atend:hover { background: #047857; box-shadow: 0 6px 18px rgba(5,150,105,.38); transform: translateY(-1px); }
+.btn-iniciar-atend:hover { background: #047857; box-shadow: 0 6px 20px rgba(5,150,105,.42); transform: translateY(-1px); }
 
 .detail-valor { color: #059669 !important; font-weight: 700 !important; }
 

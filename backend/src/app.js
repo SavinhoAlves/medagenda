@@ -13,6 +13,7 @@ const convenioRoutes = require('./routes/convenioRoutes')
 const solicitacaoRoutes = require('./routes/solicitacaoRoutes')
 const notificacaoRoutes = require('./routes/notificacaoRoutes')
 const usuarioRoutes     = require('./routes/usuarioRoutes')
+const iaRoutes          = require('./routes/iaRoutes')
 
 const app = express()
 
@@ -38,6 +39,7 @@ app.use('/convenios', convenioRoutes)
 app.use('/solicitacoes-exclusao', solicitacaoRoutes)
 app.use('/notificacoes', notificacaoRoutes)
 app.use('/usuarios',    usuarioRoutes)
+app.use('/ia',          iaRoutes)
 
 app.get('/', (req, res) => {
   res.json({ message: 'API MedAgenda funcionando 🚀' })

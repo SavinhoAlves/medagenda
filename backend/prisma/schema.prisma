@@ -19,6 +19,7 @@ model Usuario {
   consultas             Consulta[]
   solicitacoesExclusao  SolicitacaoExclusao[]
   notificacoes          Notificacao[]
+  sugestoes             Sugestao[]
 
   @@map("usuarios")
 }
@@ -197,6 +198,23 @@ model Notificacao {
   usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
   @@map("notificacoes")
+}
+
+model Sugestao {
+  id             Int      @id @default(autoincrement())
+  usuarioId      Int
+  titulo         String
+  descricao      String   @banco.Text
+  especificacao  String?  @banco.LongText
+  codigoGerado   String?  @banco.LongText
+  modo           String   @default("chat")
+  paginaContexto String?
+  status         String   @default("PENDENTE")
+  criadoEm       DateTime @default(now())
+
+  usuario        Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("sugestoes")
 }
 
 enum StatusConsulta {

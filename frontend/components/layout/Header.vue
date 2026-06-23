@@ -89,7 +89,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import {
-  LayoutDashboard, CalendarDays, Users, Clipboard,
+  LayoutDashboard, CalendarDays, Users, ClipboardList,
   UserCog, Stethoscope, CreditCard, FileText
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
@@ -125,7 +125,7 @@ const navItems = computed(() => {
   ]
   if (isMedico.value) return [
     { nome: 'Agenda',            rota: '/agenda',    icon: CalendarDays },
-    { nome: 'Minhas Consultas',  rota: '/consultas', icon: Clipboard },
+    { nome: 'Minhas Consultas',  rota: '/consultas', icon: ClipboardList },
     { nome: 'Pacientes',         rota: '/pacientes', icon: Users },
   ]
   return [
@@ -170,6 +170,7 @@ onUnmounted(() => document.removeEventListener('click', fecharAoClicarFora))
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
   z-index: 200;
+  transition: background 0.2s, border-color 0.2s;
 }
 
 .navbar-inner {
@@ -237,7 +238,7 @@ onUnmounted(() => document.removeEventListener('click', fecharAoClicarFora))
   font-family: 'Inter', sans-serif;
   font-size: 13px;
   font-weight: 500;
-  color: #64748b;
+  color: var(--text-sub);
   text-decoration: none;
   white-space: nowrap;
   flex-shrink: 0;
@@ -245,13 +246,13 @@ onUnmounted(() => document.removeEventListener('click', fecharAoClicarFora))
 }
 
 .nav-link:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: var(--bg-app);
+  color: var(--text-main);
 }
 
 .nav-link.active {
-  background: #f0fdf4;
-  color: #059669;
+  background: var(--primary-bg);
+  color: var(--primary);
   font-weight: 600;
 }
 
@@ -274,12 +275,12 @@ onUnmounted(() => document.removeEventListener('click', fecharAoClicarFora))
   border: none;
   background: none;
   border-radius: 9px;
-  color: #64748b;
+  color: var(--text-sub);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 
-.icon-btn:hover { background: #f0fdf4; color: #059669; }
+.icon-btn:hover { background: var(--primary-bg); color: var(--primary); }
 .theme-icon { width: 18px; height: 18px; }
 
 /* ── Perfil ── */
@@ -300,18 +301,18 @@ onUnmounted(() => document.removeEventListener('click', fecharAoClicarFora))
   transition: background 0.15s;
 }
 
-.profile-trigger:hover { background: #f8fafc; }
+.profile-trigger:hover { background: var(--bg-app); }
 
 .user-avatar {
   width: 30px;
   height: 30px;
-  background: #e2e8f0;
+  background: var(--border-color);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px #cbd5e1;
+  border: 2px solid var(--bg-card);
+  box-shadow: 0 0 0 1px var(--border-color);
   flex-shrink: 0;
 }
 
@@ -319,7 +320,7 @@ onUnmounted(() => document.removeEventListener('click', fecharAoClicarFora))
   font-family: 'Plus Jakarta Sans', sans-serif;
   font-weight: 700;
   font-size: 12px;
-  color: #475569;
+  color: var(--text-sub);
 }
 
 .user-info {
@@ -329,10 +330,10 @@ onUnmounted(() => document.removeEventListener('click', fecharAoClicarFora))
   line-height: 1.2;
 }
 
-.user-name-sm  { font-size: 12.5px; font-weight: 600; color: #0f172a; white-space: nowrap; }
-.user-cargo-sm { font-size: 10.5px; color: #64748b; white-space: nowrap; }
+.user-name-sm  { font-size: 12.5px; font-weight: 600; color: var(--text-main); white-space: nowrap; }
+.user-cargo-sm { font-size: 10.5px; color: var(--text-sub); white-space: nowrap; }
 
-.chevron-icon { width: 12px; height: 12px; color: #94a3b8; transition: transform 0.2s; }
+.chevron-icon { width: 12px; height: 12px; color: var(--text-sub); transition: transform 0.2s; }
 .chevron-icon.rotate { transform: rotate(180deg); }
 
 /* ── Dropdown perfil ── */
@@ -341,10 +342,10 @@ onUnmounted(() => document.removeEventListener('click', fecharAoClicarFora))
   top: calc(100% + 8px);
   right: 0;
   width: 240px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 14px;
-  box-shadow: 0 10px 30px -8px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 10px 30px -8px rgba(15, 23, 42, 0.15);
   padding: 8px;
   display: flex;
   flex-direction: column;
@@ -358,29 +359,29 @@ onUnmounted(() => document.removeEventListener('click', fecharAoClicarFora))
   gap: 2px;
 }
 
-.dd-name  { font-weight: 700; font-size: 13.5px; color: #0f172a; }
+.dd-name  { font-weight: 700; font-size: 13.5px; color: var(--text-main); }
 .dd-cargo {
   display: inline-block;
   font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
-  color: #059669; background: #f0fdf4; border: 1px solid #bbf7d0;
+  color: var(--primary); background: var(--primary-bg); border: 1px solid rgba(16, 185, 129, 0.3);
   border-radius: 4px; padding: 2px 7px; margin-top: 3px; width: fit-content;
 }
-.dd-email { font-size: 11.5px; color: #94a3b8; margin-top: 2px; }
+.dd-email { font-size: 11.5px; color: var(--text-sub); margin-top: 2px; }
 
-.dropdown-divider { height: 1px; background: #f1f5f9; margin: 5px 4px; }
+.dropdown-divider { height: 1px; background: var(--border-color); margin: 5px 4px; }
 
 .dropdown-item {
   display: flex; align-items: center; gap: 10px;
   width: 100%; padding: 9px 12px;
   background: none; border: none; border-radius: 8px;
   font-family: 'Inter', sans-serif; font-size: 13.5px; font-weight: 600;
-  color: #475569; text-decoration: none; cursor: pointer; text-align: left;
+  color: var(--text-sub); text-decoration: none; cursor: pointer; text-align: left;
   transition: background 0.15s, color 0.15s;
 }
 
-.dropdown-item:hover { background: #f8fafc; color: #0f172a; }
+.dropdown-item:hover { background: var(--bg-app); color: var(--text-main); }
 .logout-btn          { color: #ef4444; }
-.logout-btn:hover    { background: #fef2f2; color: #dc2626; }
+.logout-btn:hover    { background: rgba(239, 68, 68, 0.08); color: #dc2626; }
 
 .dd-icon { width: 15px; height: 15px; flex-shrink: 0; }
 

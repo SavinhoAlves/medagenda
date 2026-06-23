@@ -25,7 +25,7 @@ onMounted(() => {
 html, body {
   margin: 0;
   padding: 0;
-  background-color: #080d10;
+  background-color: #f8fafc;
   overflow-x: hidden;
 }
 
